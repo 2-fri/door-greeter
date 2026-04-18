@@ -1,0 +1,15 @@
+CAMERA INPUT (frame images) -- Read by:
+    1. Yolo Layer -- 
+        - Detects if person exists. Action only taken when person is seen
+        - Extension: Only if person is close enough, then action kicks off
+    1. Yolo -> NODE: Centering
+        - Get center of image, offset of person, calculate where robot needs to rotate to in order to center person
+    2. Yolo -> NODE: Facial recognition
+        - Read face vectorization, look into db, check for similarity
+            - if found, greet w/ name
+            - if not found, add to db (with confirmation)
+        - REQUIREMENTS: Text-to-speech, db (with local storage)
+        - Questions:
+            - What happens if can't recognize face (model output)
+            - What should be published?
+            - Can robot handle speech by itself (what is pathway for that)
