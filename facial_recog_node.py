@@ -14,8 +14,9 @@ import cv2
 import sqlite3, sqlite_vec
 import numpy as np
 
-# Global Constants
-SIMILARITY_THRESHOLD = 1
+# Global Settings
+FACE_MARGIN = 10
+SIMILARITY_THRESHOLD = 1.0
 RECOGNITION_PATIENCE = 50
 
 # Facial Recognition Node
@@ -34,7 +35,7 @@ class FacialRecogNode(Node):
         self.bridge = CvBridge()
 
         # Facenet Init
-        self.mtcnn = MTCNN(image_size=160, margin=10)
+        self.mtcnn = MTCNN(image_size=160, margin=FACE_MARGIN)
         self.resnet = InceptionResnetV1(pretrained='vggface2').eval()
 
         # SQL Init
@@ -48,9 +49,9 @@ class FacialRecogNode(Node):
     def listener_callback(self, msg):
         face_crop = self.mtcnn(PImage.fromarray(self.bridge.imgmsg_to_cv2(msg)))
         if face_crop is not None:
-            #Check if this is a face
+            # TODO Check if this is a face
 
-            cv2.imshow('horrible', cv2.cvtColor(np.array(T.ToPILImage()(face_crop)), cv2.COLOR_RGB2BGR))
+            cv2.imshow('mtcnn face', cv2.cvtColor(np.array(T.ToPILImage()(face_crop)), cv2.COLOR_RGB2BGR))
             cv2.waitKey(1)
             embedding = self.resnet(face_crop.unsqueeze(0)).squeeze().detach().numpy()
             embedding = embedding / np.linalg.norm(embedding)
@@ -75,23 +76,20 @@ class FacialRecogNode(Node):
                     self.faces.commit()
             else:
                 rowid, distance = find
-                if distance <= SIMILARITY_THRESHOLD:
-                    # Found :)
-                    print(f"I recognize you {rowid} with dist {distance}")
+                if distance <= SIMILARITY_THRESHOLD:    # Match
+                    print(f"Recognized {rowid} with dist {distance}")
                     self.patience = RECOGNITION_PATIENCE
-                else:
-                    # New
-                    if self.patience:
-                        self.patience -= 1
-                        print(f"New Face with dist {distance} -> Waiting ({self.patience}/{RECOGNITION_PATIENCE})")
-                    else:
-                        print(f"New Face with dist {distance} -> Adding")
-                        self.faces.execute(
-                            "INSERT INTO faces (embedding) VALUES (?)",
-                            (embedding,)
-                        )
-                        self.faces.commit()
-                        self.patience = RECOGNITION_PATIENCE
+                elif self.patience:                     # No Match, Waiting
+                    self.patience -= 1
+                    print(f"New Face with dist {distance} -> Waiting ({self.patience}/{RECOGNITION_PATIENCE})")
+                else:                                   # No Match, Adding
+                    print(f"New Face with dist {distance} -> Adding")
+                    self.faces.execute(
+                        "INSERT INTO faces (embedding) VALUES (?)",
+                        (embedding,)
+                    )
+                    self.faces.commit()
+                    self.patience = RECOGNITION_PATIENCE
                 
 
             
