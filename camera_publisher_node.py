@@ -4,6 +4,9 @@ from sensor_msgs.msg import Image
 from rclpy.node import Node
 from cv_bridge import CvBridge
 
+# Global Settings
+PUBLISHING_PERIOD = 2.0
+
 class CameraPublisher(Node):
     def __init__(self):
         super().__init__('camera_publisher')
@@ -12,11 +15,8 @@ class CameraPublisher(Node):
         self.camera = cv2.VideoCapture(self.camDeviceNum)
 
         self.bridge_obj = CvBridge()
-        
         self.publisher = self.create_publisher(Image, 'camera_raw', 1)
-        self.period = 0.02
-
-        self.timer = self.create_timer(self.period, self.callback_func)
+        self.timer = self.create_timer(PUBLISHING_PERIOD, self.callback_func)
 
         print("Camera Publisher Initialized")
 
