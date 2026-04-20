@@ -1,1 +1,3 @@
 pyvenv/
+__pycache__/
+yolo11s.pt

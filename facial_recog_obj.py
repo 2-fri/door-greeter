@@ -30,7 +30,7 @@ class FacialRecogObj():
         self.faces.execute("CREATE VIRTUAL TABLE IF NOT EXISTS faces USING vec0(embedding FLOAT[512]);")
 
         # Internal Init
-        person_memory = []
+        self.person_memory = []
 
         print("facial_recog_object Initialized")
     

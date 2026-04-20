@@ -5,7 +5,7 @@ from rclpy.node import Node
 from cv_bridge import CvBridge
 
 # Global Settings
-PUBLISHING_PERIOD = 2.0
+PUBLISHING_PERIOD = 0.02
 
 class CameraPublisher(Node):
     def __init__(self):
