@@ -38,7 +38,8 @@ class YoloNode(Node):
     
     def listener_callback(self, msg):
         frame = self.bridge.imgmsg_to_cv2(msg)
-        result = self.model.predict(frame, classes = [0], save = False)[0]
+        cv2.imshow('camera', frame)
+        result = self.model.predict(frame, classes = [0], save = False, verbose = False)[0]
 
         # Person Segmentation
 
@@ -49,7 +50,7 @@ class YoloNode(Node):
             self.facial_recog_obj.parse_face(person)
         
         self.facial_recog_obj.advance_forgetting()
-            
+        cv2.waitKey(1)
 
         
 

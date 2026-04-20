@@ -17,7 +17,7 @@ FORGETTING_PATIENCE = 10
 # Facial Recognition Object
 class FacialRecogObj():
     patience = RECOGNITION_PATIENCE
-    person_memory = None #[embedding, forget]
+    person_memory = None #[embedding, rowid, forget]
 
     def __init__(self):
         # Facenet Init
@@ -34,32 +34,36 @@ class FacialRecogObj():
 
         print("facial_recog_object Initialized")
     
-    def remember_person(self, embedding):
-        self.person_memory.append([embedding, FORGETTING_PATIENCE])
+    def remember_person(self, embedding : np.ndarray, rowid : int):
+        self.person_memory.append([embedding, rowid, FORGETTING_PATIENCE])
+        print(f"Person {rowid} ENTERED the frame")
 
     def advance_forgetting(self):
-        for entry in self.person_memory:
-            entry[1] -= 1
-            if entry[1] < 0:
-                self.person_memory.remove(entry)
+        for num, entry in enumerate(self.person_memory[:]):
+            entry[2] -= 1
+            if entry[2] < 0:
+                self.person_memory.pop(num)
+                print(f"Person {entry[1]} LEFT the frame")
 
     def parse_face(self, person : np.ndarray):
+        if person is None or person.ndim == 0:
+            return
+        cv2.imshow('person', person)
         face_crop = self.mtcnn(PImage.fromarray(person))
         if face_crop is not None:
             # TODO Check if this is a face
 
-            # cv2.imshow('mtcnn face', cv2.cvtColor(np.array(T.ToPILImage()(face_crop)), cv2.COLOR_RGB2BGR))
-            # cv2.waitKey(1)
-            embedding = self.resnet(face_crop.unsqueeze(0)).squeeze().detach().numpy()
-            embedding = embedding / np.linalg.norm(embedding)
-            embedding = embedding.tobytes()
+            cv2.imshow('mtcnn face', cv2.cvtColor(np.array(T.ToPILImage()(face_crop)), cv2.COLOR_RGB2BGR))
+            face_vect = self.resnet(face_crop.unsqueeze(0)).squeeze().detach().numpy()
+            face_vect = face_vect / np.linalg.norm(face_vect)
             
             # COMPARE WITH MEMORY
             for entry in self.person_memory:
-                if np.linalg.norm(embedding - entry[0]) <= SIMILARITY_THRESHOLD: # Euclidean Dist
-                    entry[1] = FORGETTING_PATIENCE
+                if np.linalg.norm(face_vect - entry[0]) <= SIMILARITY_THRESHOLD: # Euclidean Dist
+                    entry[2] = FORGETTING_PATIENCE
                     return
 
+            embedding = face_vect.tobytes()
             # Face Recognition
             find = self.faces.execute(
                 "SELECT rowid, distance FROM faces WHERE embedding MATCH ? AND k = 1",
@@ -69,30 +73,30 @@ class FacialRecogObj():
             if find is None:
                 if self.patience:
                     self.patience -= 1
-                    print(f"Empty Database -> Waiting ({self.patience}/{RECOGNITION_PATIENCE})")
+                    # print(f"Empty Database -> Waiting ({self.patience}/{RECOGNITION_PATIENCE})")
                 else:
-                    print(f"Empty Database -> Adding")
+                    # print(f"Empty Database -> Adding")
                     self.faces.execute(
                         "INSERT INTO faces (embedding) VALUES (?)",
                         (embedding,)
                     )
                     self.faces.commit()
-                    self.remember_person(embedding)
+                    self.remember_person(face_vect, 1)
             else:
                 rowid, distance = find
                 if distance <= SIMILARITY_THRESHOLD:    # Match
-                    print(f"Recognized {rowid} with dist {distance}")
+                    # print(f"Recognized {rowid} with dist {distance}")
                     self.patience = RECOGNITION_PATIENCE
-                    self.remember_person(embedding)
+                    self.remember_person(face_vect, rowid)
                 elif self.patience:                     # No Match, Waiting
                     self.patience -= 1
-                    print(f"New Face with dist {distance} -> Waiting ({self.patience}/{RECOGNITION_PATIENCE})")
+                    # print(f"New Face with dist {distance} -> Waiting ({self.patience}/{RECOGNITION_PATIENCE})")
                 else:                                   # No Match, Adding
-                    print(f"New Face with dist {distance} -> Adding")
+                    # print(f"New Face with dist {distance} -> Adding")
                     self.faces.execute(
                         "INSERT INTO faces (embedding) VALUES (?)",
                         (embedding,)
                     )
                     self.faces.commit()
                     self.patience = RECOGNITION_PATIENCE
-                    self.remember_person(embedding)
+                    self.remember_person(face_vect, self.faces.execute("SELECT COUNT(*) FROM faces").fetchone()[0])

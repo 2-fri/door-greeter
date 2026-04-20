@@ -18,7 +18,7 @@ class CameraPublisher(Node):
         self.publisher = self.create_publisher(Image, 'camera_raw', 1)
         self.timer = self.create_timer(PUBLISHING_PERIOD, self.callback_func)
 
-        print("Camera Publisher Initialized")
+        print(f"Camera Publisher Initialized with period {PUBLISHING_PERIOD}s")
 
     def callback_func(self):
         success, frame = self.camera.read()
