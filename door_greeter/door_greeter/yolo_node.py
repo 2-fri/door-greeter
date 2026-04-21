@@ -11,7 +11,7 @@ from ultralytics import YOLO
 import numpy as np
 
 # Our Imports
-from facial_recog_obj import FacialRecogObj
+from door_greeter.facial_recog_obj import FacialRecogObj
 
 # Global Setting
 YOLO_MODEL = "yolo11s.pt"

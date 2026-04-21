@@ -1,3 +1,6 @@
 pyvenv/
 __pycache__/
 yolo11s.pt
+build/
+install/
+log/
