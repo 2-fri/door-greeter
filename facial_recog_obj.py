@@ -47,56 +47,60 @@ class FacialRecogObj():
 
     def parse_face(self, person : np.ndarray):
         if person is None or person.ndim == 0:
-            return
+            return False
         cv2.imshow('person', person)
         face_crop = self.mtcnn(PImage.fromarray(person))
-        if face_crop is not None:
-            # TODO Check if this is a face
+        
+        if face_crop is None:
+            return False
+        
+        # TODO Check if this is a face
 
-            cv2.imshow('mtcnn face', cv2.cvtColor(np.array(T.ToPILImage()(face_crop)), cv2.COLOR_RGB2BGR))
-            face_vect = self.resnet(face_crop.unsqueeze(0)).squeeze().detach().numpy()
-            face_vect = face_vect / np.linalg.norm(face_vect)
-            
-            # COMPARE WITH MEMORY
-            for entry in self.person_memory:
-                if np.linalg.norm(face_vect - entry[0]) <= SIMILARITY_THRESHOLD: # Euclidean Dist
-                    entry[2] = FORGETTING_PATIENCE
-                    return
+        cv2.imshow('mtcnn face', cv2.cvtColor(np.array(T.ToPILImage()(face_crop)), cv2.COLOR_RGB2BGR))
+        face_vect = self.resnet(face_crop.unsqueeze(0)).squeeze().detach().numpy()
+        face_vect = face_vect / np.linalg.norm(face_vect)
+        
+        # COMPARE WITH MEMORY
+        for entry in self.person_memory:
+            if np.linalg.norm(face_vect - entry[0]) <= SIMILARITY_THRESHOLD: # Euclidean Dist
+                entry[2] = FORGETTING_PATIENCE
+                return True
 
-            embedding = face_vect.tobytes()
-            # Face Recognition
-            find = self.faces.execute(
-                "SELECT rowid, distance FROM faces WHERE embedding MATCH ? AND k = 1",
-                (embedding,)
-            ).fetchone()
+        embedding = face_vect.tobytes()
+        # Face Recognition
+        find = self.faces.execute(
+            "SELECT rowid, distance FROM faces WHERE embedding MATCH ? AND k = 1",
+            (embedding,)
+        ).fetchone()
 
-            if find is None:
-                if self.patience:
-                    self.patience -= 1
-                    # print(f"Empty Database -> Waiting ({self.patience}/{RECOGNITION_PATIENCE})")
-                else:
-                    # print(f"Empty Database -> Adding")
-                    self.faces.execute(
-                        "INSERT INTO faces (embedding) VALUES (?)",
-                        (embedding,)
-                    )
-                    self.faces.commit()
-                    self.remember_person(face_vect, 1)
+        if find is None:
+            if self.patience:
+                self.patience -= 1
+                # print(f"Empty Database -> Waiting ({self.patience}/{RECOGNITION_PATIENCE})")
             else:
-                rowid, distance = find
-                if distance <= SIMILARITY_THRESHOLD:    # Match
-                    # print(f"Recognized {rowid} with dist {distance}")
-                    self.patience = RECOGNITION_PATIENCE
-                    self.remember_person(face_vect, rowid)
-                elif self.patience:                     # No Match, Waiting
-                    self.patience -= 1
-                    # print(f"New Face with dist {distance} -> Waiting ({self.patience}/{RECOGNITION_PATIENCE})")
-                else:                                   # No Match, Adding
-                    # print(f"New Face with dist {distance} -> Adding")
-                    self.faces.execute(
-                        "INSERT INTO faces (embedding) VALUES (?)",
-                        (embedding,)
-                    )
-                    self.faces.commit()
-                    self.patience = RECOGNITION_PATIENCE
-                    self.remember_person(face_vect, self.faces.execute("SELECT COUNT(*) FROM faces").fetchone()[0])
+                # print(f"Empty Database -> Adding")
+                self.faces.execute(
+                    "INSERT INTO faces (embedding) VALUES (?)",
+                    (embedding,)
+                )
+                self.faces.commit()
+                self.remember_person(face_vect, 1)
+        else:
+            rowid, distance = find
+            if distance <= SIMILARITY_THRESHOLD:    # Match
+                # print(f"Recognized {rowid} with dist {distance}")
+                self.patience = RECOGNITION_PATIENCE
+                self.remember_person(face_vect, rowid)
+            elif self.patience:                     # No Match, Waiting
+                self.patience -= 1
+                # print(f"New Face with dist {distance} -> Waiting ({self.patience}/{RECOGNITION_PATIENCE})")
+            else:                                   # No Match, Adding
+                # print(f"New Face with dist {distance} -> Adding")
+                self.faces.execute(
+                    "INSERT INTO faces (embedding) VALUES (?)",
+                    (embedding,)
+                )
+                self.faces.commit()
+                self.patience = RECOGNITION_PATIENCE
+                self.remember_person(face_vect, self.faces.execute("SELECT COUNT(*) FROM faces").fetchone()[0])
+        return True

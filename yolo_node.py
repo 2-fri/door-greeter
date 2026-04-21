@@ -42,17 +42,34 @@ class YoloNode(Node):
         result = self.model.predict(frame, classes = [0], save = False, verbose = False)[0]
 
         # Person Segmentation
+        halfway_width = int(frame.shape[1] / 2)
+        # print(halfway_width)
+        person_central_x = 0 # [x,y] avg of all people in frame
+        person_count = 0
+        rotation_angle = 0 # set to no rotation at first, depending if we see people will change
 
         for num, box in enumerate(result.boxes):
             coords = [int(i) for i in box.xyxy[0].tolist()] # Get bounding box, convert all values to ints
+            # print(coords)
+            
             person = frame[coords[1]:coords[3],coords[0]:coords[2]]
 
-            self.facial_recog_obj.parse_face(person)
+            if self.facial_recog_obj.parse_face(person):
+                person_central_x += box.xywh[0].tolist()[0]
+                person_count += 1
+            else:
+                print("cant find person")
         
+        if person_count > 0:
+            person_central_x = int(person_central_x / person_count)
+        
+        print(person_central_x)
+        if person_central_x - halfway_width > 0:
+            print("turn right")
+        else:
+            print("turn left")
         self.facial_recog_obj.advance_forgetting()
         cv2.waitKey(1)
-
-        
 
         # Turn to Person
 
