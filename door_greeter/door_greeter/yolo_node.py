@@ -13,6 +13,9 @@ import numpy as np
 # Our Imports
 from door_greeter.facial_recog_obj import FacialRecogObj
 
+# foregin imports
+import speech_recognition as sr
+
 # Global Setting
 YOLO_MODEL = "yolo11s.pt"
 VELOCITY_CONSTANT = 1.0
@@ -90,6 +93,17 @@ class YoloNode(Node):
         self.vel_publisher.publish(self.twist)        
 
 def main(args=None):
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("Say something!")
+        audio = r.listen(source)
+    try:
+        print("Sphinx thinks you said " + r.recognize_sphinx(audio))
+    except sr.UnknownValueError:
+        print("Sphinx could not understand audio")
+    except sr.RequestError as e:
+        print("Sphinx error; {0}".format(e))
+        
     rclpy.init(args=args)
     yolo_subscriber = YoloNode()
     rclpy.spin(yolo_subscriber)

@@ -4,3 +4,4 @@ yolo11s.pt
 build/
 install/
 log/
+.env
