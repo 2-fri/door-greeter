@@ -9,6 +9,12 @@ python camera_publisher_node.py
 python yolo_node.py
 ```
 
+To authenticate output, run:
+
+``` bash
+python output_authenticator.py
+```
+
 ## ROS Build
 
 To build this package...

@@ -49,8 +49,12 @@ class FacialRecogObj():
         if person is None or person.ndim == 0:
             return False
         cv2.imshow('person', person)
-        face_crop = self.mtcnn(PImage.fromarray(person))
-        
+        try:
+            face_crop = self.mtcnn(PImage.fromarray(person))
+        except Exception as e:
+            print(f'Exception caught: {e}')
+            return False
+
         if face_crop is None:
             return False
         

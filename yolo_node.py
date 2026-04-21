@@ -2,6 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
+from geometry_msgs.msg import Twist
 from cv_bridge import CvBridge
 import cv2
 
@@ -14,6 +15,7 @@ from facial_recog_obj import FacialRecogObj
 
 # Global Setting
 YOLO_MODEL = "yolo11s.pt"
+VELOCITY_CONSTANT = 1.0
 
 # YOLO Node
 class YoloNode(Node):
@@ -26,6 +28,8 @@ class YoloNode(Node):
             self.listener_callback,
             1
         )
+        self.vel_publisher = self.create_publisher(Twist, '/cmd_vel', 1)
+        self.twist = Twist()
         self.bridge = CvBridge()
 
         # YOLO Init
@@ -46,7 +50,7 @@ class YoloNode(Node):
         # print(halfway_width)
         person_central_x = 0 # [x,y] avg of all people in frame
         person_count = 0
-        rotation_angle = 0 # set to no rotation at first, depending if we see people will change
+        rotation_vel = 0 # set to no rotation at first, depending if we see people will change
 
         for num, box in enumerate(result.boxes):
             coords = [int(i) for i in box.xyxy[0].tolist()] # Get bounding box, convert all values to ints
@@ -61,19 +65,29 @@ class YoloNode(Node):
                 print("cant find person")
         
         if person_count > 0:
-            person_central_x = int(person_central_x / person_count)
-        
-        print(person_central_x)
-        if person_central_x - halfway_width > 0:
-            print("turn right")
+            person_central_x = int(person_central_x / person_count)   
+            print(person_central_x)
+            print(halfway_width)
+            rotation_vel = ((person_central_x - halfway_width) / halfway_width) * VELOCITY_CONSTANT
+            print(rotation_vel)
+            if rotation_vel < 0.2 and rotation_vel > -0.2:
+                rotation_vel = 0.0
+            
+            self.twist.angular.z = rotation_vel
+
+            if rotation_vel > 0:
+                print("turn right")
+            elif rotation_vel < 0:
+                print("turn left")
+            else:
+                print("stationary")
         else:
-            print("turn left")
+            self.twist.angular.z = 0.0
         self.facial_recog_obj.advance_forgetting()
         cv2.waitKey(1)
 
         # Turn to Person
-
-        
+        self.vel_publisher.publish(self.twist)        
 
 def main(args=None):
     rclpy.init(args=args)
