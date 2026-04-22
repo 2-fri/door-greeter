@@ -11,7 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools', 'ultralytics'],
+    install_requires=['setuptools', 'ultralytics', 'pyaudio'],
     zip_safe=True,
     maintainer='2_fri',
     maintainer_email='as228976@eid.utexas.edu',
