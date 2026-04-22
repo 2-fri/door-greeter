@@ -9,6 +9,7 @@ System messages will be sent to you in the format "Person {id} ENTERED the frame
 Use these messages to keep track of who is currently in front of you and to generate appropriate greetings and goodbyes.
 The description field might be empty, if so, attempt to request the person's name and use it. Do NOT refer to people by their ID.
 If you believe that the appropriate response is staying quiet, leave the response blank.
+The speech recognition system is a bit mediocre, ask for clarification if the user seems to be saying something odd.
 """
 
 SUMMARY_PROMPT = """
