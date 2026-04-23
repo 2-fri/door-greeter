@@ -8,6 +8,9 @@ import cv2
 import sqlite3, sqlite_vec
 import numpy as np
 
+# Our Imports
+from door_greeter.llm_layer import Converser
+
 # Global Settings
 FACE_MARGIN = 10
 SIMILARITY_THRESHOLD = 1.0
@@ -31,12 +34,15 @@ class FacialRecogObj():
 
         # Internal Init
         self.person_memory = []
+        self.llm_layer = Converser()
 
         print("facial_recog_object Initialized")
     
     def remember_person(self, embedding : np.ndarray, rowid : int):
         self.person_memory.append([embedding, rowid, FORGETTING_PATIENCE])
         print(f"Person {rowid} ENTERED the frame")
+        self.llm_layer.add_person(rowid, "")
+
 
     def advance_forgetting(self):
         for num, entry in enumerate(self.person_memory[:]):
@@ -44,9 +50,11 @@ class FacialRecogObj():
             if entry[2] < 0:
                 self.person_memory.pop(num)
                 print(f"Person {entry[1]} LEFT the frame")
+                self.llm_layer.remove_person(entry[1])
 
     def parse_face(self, person : np.ndarray):
         if person is None or person.ndim == 0:
+            print("Null input to parse_face")
             return False
         cv2.imshow('person', person)
         try:
@@ -56,6 +64,7 @@ class FacialRecogObj():
             return False
 
         if face_crop is None:
+            print("No face detected")
             return False
         
         # TODO Check if this is a face

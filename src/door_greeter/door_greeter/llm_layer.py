@@ -2,6 +2,9 @@ from groq import Groq
 from dotenv import load_dotenv
 import os
 
+# Speech To Text
+import speech_recognition as sr
+
 SYSTEM_PROMPT = """
 You are a friendly and helpful greeter bot stationed at the entrance of a building. 
 Your job is to welcome people as they enter and say goodbye as they leave. 
@@ -22,11 +25,20 @@ class Converser:
 
     def __init__(self):
         self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        self.recognizer = sr.Recognizer()
         self.state = []
 
     def add_person(self, id : int, description : str):
         self.state.append({"role": "system", "content": f"Person {id} ENTERED the frame. Person {id} description: {description}"})
         self.n_people += 1
+        completion = self.client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
+        )
+        self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
+        # Speak
+        print(f"ROBOT> {self.state[-1]['content']}")
+        self.listen()
 
     def remove_person(self, id : int):
         self.state.append({"role": "system", "content": f"Person {id} LEFT the frame."})
@@ -41,8 +53,27 @@ class Converser:
         return completion.choices[0].message.content
     
     def converse(self, message):
+        if (message.strip() == ""):
+            return # Empty Input
+        self.state.append({"role": "user", "content": message})
         completion = self.client.chat.completions.create(
             model="openai/gpt-oss-120b",
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state + [{"role": "user", "content": message}]
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
         )
-        return completion.choices[0].message.content
+        self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
+        # Speak
+        print(f"ROBOT> {self.state[-1]['content']}")
+        # self.listen() # Pros: Conversation, Cons: Stall forever
+
+    def listen(self):
+        with sr.Microphone() as source:
+            print("Listening for user response...")
+            audio = self.recognizer.listen(source, phrase_time_limit = 10)
+        try:
+            user_message = self.recognizer.recognize_sphinx(audio)
+            print("USER> " + user_message)
+            self.converse(user_message)
+        except sr.UnknownValueError:
+            print("Sphinx could not understand audio")
+        except sr.RequestError as e:
+            print("Sphinx error; {0}".format(e))

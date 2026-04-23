@@ -11,10 +11,7 @@ from ultralytics import YOLO
 import numpy as np
 
 # Our Imports
-from src.door_greeter.src.facial_recog_obj import FacialRecogObj
-
-# foregin imports
-import speech_recognition as sr
+from door_greeter.facial_recog_obj import FacialRecogObj
 
 # Global Setting
 YOLO_MODEL = "yolo11s.pt"
@@ -69,21 +66,21 @@ class YoloNode(Node):
         
         if person_count > 0:
             person_central_x = int(person_central_x / person_count)   
-            print(person_central_x)
-            print(halfway_width)
             rotation_vel = ((person_central_x - halfway_width) / halfway_width) * VELOCITY_CONSTANT
-            print(rotation_vel)
+            # print(person_central_x)
+            # print(halfway_width)
+            # print(rotation_vel)
             if rotation_vel < 0.2 and rotation_vel > -0.2:
                 rotation_vel = 0.0
             
             self.twist.angular.z = rotation_vel
 
-            if rotation_vel > 0:
-                print("turn right")
-            elif rotation_vel < 0:
-                print("turn left")
-            else:
-                print("stationary")
+            # if rotation_vel > 0:
+            #     print("turn right")
+            # elif rotation_vel < 0:
+            #     print("turn left")
+            # else:
+            #     print("stationary")
         else:
             self.twist.angular.z = 0.0
         self.facial_recog_obj.advance_forgetting()
@@ -93,19 +90,6 @@ class YoloNode(Node):
         self.vel_publisher.publish(self.twist)        
 
 def main(args=None):
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        print("mic is ", source.list_microphone_names())
-        print("Say something!")
-        audio = r.listen(source, phrase_time_limit = 10)
-        print("Done listening!")
-    try:
-        print("Sphinx thinks you said " + r.recognize_sphinx(audio))
-    except sr.UnknownValueError:
-        print("Sphinx could not understand audio")
-    except sr.RequestError as e:
-        print("Sphinx error; {0}".format(e))
-        
     rclpy.init(args=args)
     yolo_subscriber = YoloNode()
     rclpy.spin(yolo_subscriber)
