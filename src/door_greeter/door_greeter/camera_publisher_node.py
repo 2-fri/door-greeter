@@ -24,7 +24,9 @@ class CameraPublisher(Node):
         success, frame = self.camera.read()
         
         if success:
+            cv2.imshow('camera', frame)
             self.publisher.publish(self.bridge_obj.cv2_to_imgmsg(frame))
+            cv2.waitKey(1)
 
 
 def main(args=None):

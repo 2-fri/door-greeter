@@ -42,7 +42,6 @@ class YoloNode(Node):
     
     def listener_callback(self, msg):
         frame = self.bridge.imgmsg_to_cv2(msg)
-        cv2.imshow('camera', frame)
         result = self.model.predict(frame, classes = [0], save = False, verbose = False)[0]
 
         # Person Segmentation
@@ -62,7 +61,7 @@ class YoloNode(Node):
                 person_central_x += box.xywh[0].tolist()[0]
                 person_count += 1
             else:
-                print("cant find person")
+                pass
         
         if person_count > 0:
             person_central_x = int(person_central_x / person_count)   

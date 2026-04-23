@@ -30,7 +30,7 @@ class FacialRecogObj():
         # SQL Init
         self.faces = sqlite3.connect("faces.db")
         sqlite_vec.load(self.faces)
-        self.faces.execute("CREATE VIRTUAL TABLE IF NOT EXISTS faces USING vec0(embedding FLOAT[512]);")
+        self.faces.execute("CREATE VIRTUAL TABLE IF NOT EXISTS faces USING vec0(embedding FLOAT[512], value TEXT);")
 
         # Internal Init
         self.person_memory = []
@@ -38,10 +38,10 @@ class FacialRecogObj():
 
         print("facial_recog_object Initialized")
     
-    def remember_person(self, embedding : np.ndarray, rowid : int):
+    def remember_person(self, embedding : np.ndarray, rowid : int, description : str = ""):
         self.person_memory.append([embedding, rowid, FORGETTING_PATIENCE])
         print(f"Person {rowid} ENTERED the frame")
-        self.llm_layer.add_person(rowid, "")
+        self.llm_layer.add_person(rowid, description)
 
 
     def advance_forgetting(self):
@@ -50,7 +50,10 @@ class FacialRecogObj():
             if entry[2] < 0:
                 self.person_memory.pop(num)
                 print(f"Person {entry[1]} LEFT the frame")
-                self.llm_layer.remove_person(entry[1])
+                description = self.llm_layer.remove_person(entry[1])
+                if description:
+                    self.faces.execute("UPDATE faces SET value = ? WHERE rowid = ?", (description, entry[1]))
+                    self.faces.commit()
 
     def parse_face(self, person : np.ndarray):
         if person is None or person.ndim == 0:
@@ -64,7 +67,6 @@ class FacialRecogObj():
             return False
 
         if face_crop is None:
-            print("No face detected")
             return False
         
         # TODO Check if this is a face
@@ -82,36 +84,31 @@ class FacialRecogObj():
         embedding = face_vect.tobytes()
         # Face Recognition
         find = self.faces.execute(
-            "SELECT rowid, distance FROM faces WHERE embedding MATCH ? AND k = 1",
+            "SELECT rowid, distance, value FROM faces WHERE embedding MATCH ? AND k = 1",
             (embedding,)
         ).fetchone()
 
         if find is None:
             if self.patience:
                 self.patience -= 1
-                # print(f"Empty Database -> Waiting ({self.patience}/{RECOGNITION_PATIENCE})")
             else:
-                # print(f"Empty Database -> Adding")
                 self.faces.execute(
-                    "INSERT INTO faces (embedding) VALUES (?)",
-                    (embedding,)
+                    "INSERT INTO faces (embedding, value) VALUES (?, ?)",
+                    (embedding, "")
                 )
                 self.faces.commit()
                 self.remember_person(face_vect, 1)
         else:
-            rowid, distance = find
+            rowid, distance, description = find
             if distance <= SIMILARITY_THRESHOLD:    # Match
-                # print(f"Recognized {rowid} with dist {distance}")
                 self.patience = RECOGNITION_PATIENCE
-                self.remember_person(face_vect, rowid)
+                self.remember_person(face_vect, rowid, description)
             elif self.patience:                     # No Match, Waiting
                 self.patience -= 1
-                # print(f"New Face with dist {distance} -> Waiting ({self.patience}/{RECOGNITION_PATIENCE})")
             else:                                   # No Match, Adding
-                # print(f"New Face with dist {distance} -> Adding")
                 self.faces.execute(
-                    "INSERT INTO faces (embedding) VALUES (?)",
-                    (embedding,)
+                    "INSERT INTO faces (embedding, value) VALUES (?, ?)",
+                    (embedding, "")
                 )
                 self.faces.commit()
                 self.patience = RECOGNITION_PATIENCE

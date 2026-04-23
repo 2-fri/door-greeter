@@ -5,6 +5,7 @@ pip install groq
 pip install dotenv
 pip install SpeechRecognition[audio]
 pip install SpeechRecognition[pocketsphinx]
+pip install pyttsx3
 
 cd ~/door-greeter
 mkdir -p external
