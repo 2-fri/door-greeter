@@ -36,13 +36,15 @@ class YoloNode(Node):
         self.model = YOLO(YOLO_MODEL)
 
         # Create Facial Recog Objectect
-        self.facial_recog_obj = FacialRecogObj()
+        self.facial_recog_obj = FacialRecogObj(self)
 
         print("YOLO Node Initialized")
     
+    def detect_people(self, frame):
+        return self.model.predict(frame, classes = [0], save = False, verbose = False)[0].boxes
+
     def listener_callback(self, msg):
         frame = self.bridge.imgmsg_to_cv2(msg)
-        result = self.model.predict(frame, classes = [0], save = False, verbose = False)[0]
 
         # Person Segmentation
         halfway_width = int(frame.shape[1] / 2)
@@ -51,7 +53,7 @@ class YoloNode(Node):
         person_count = 0
         rotation_vel = 0 # set to no rotation at first, depending if we see people will change
 
-        for num, box in enumerate(result.boxes):
+        for num, box in enumerate(self.detect_people(frame)):
             coords = [int(i) for i in box.xyxy[0].tolist()] # Get bounding box, convert all values to ints
             # print(coords)
             

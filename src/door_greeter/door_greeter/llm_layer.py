@@ -26,7 +26,9 @@ Do not put emojis or emoticons in your responses. Keep the responses short, no l
 SUMMARY_PRIMER = """
 Your goal is to create a concise summary (500 characters max) of all important information about a person as requested.
 Be sure to include the person's name if you know it, and any other relevant information that was mentioned during the conversation.
+Also include the information already provided in the previously stored description.
 If the person requested something not to be remembered / stored, do not include that information in the summary.
+This summary is meant to be a long-term record that will be reffered to in the future.
 """
 SUMMARY_PROMPT = "Create a summary based on the conversation for Person "
 

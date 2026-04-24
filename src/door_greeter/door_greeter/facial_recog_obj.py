@@ -12,7 +12,7 @@ import numpy as np
 from door_greeter.llm_layer import Converser
 
 # Global Settings
-FACE_MARGIN = 10
+FACE_MARGIN = 30
 SIMILARITY_THRESHOLD = 1.0
 RECOGNITION_PATIENCE = 50
 FORGETTING_PATIENCE = 50
@@ -22,7 +22,10 @@ class FacialRecogObj():
     patience = RECOGNITION_PATIENCE
     person_memory = None #[embedding, rowid, forget]
 
-    def __init__(self):
+    def __init__(self, yolo):
+        # Reference to the yolo node
+        self.yolo = yolo
+
         # Facenet Init
         self.mtcnn = MTCNN(image_size=160, margin=FACE_MARGIN)
         self.resnet = InceptionResnetV1(pretrained='vggface2').eval()
@@ -63,15 +66,17 @@ class FacialRecogObj():
         try:
             face_crop = self.mtcnn(PImage.fromarray(person))
         except Exception as e:
-            print(f'Exception caught: {e}')
+            print(f'Exception during MTCNN processing caught: {e}')
             return False
 
         if face_crop is None:
             return False
         
-        # TODO Check if this is a face
+        cv2.imshow('mtcnn face', np.array(T.ToPILImage()(face_crop)))
+        if self.yolo.detect_people(cv2.imshow('mtcnn face', np.array(T.ToPILImage()(face_crop)))).shape[0] == 0: 
+            print("Invalid face detected, discarding.")
+            return False
 
-        cv2.imshow('mtcnn face', cv2.cvtColor(np.array(T.ToPILImage()(face_crop)), cv2.COLOR_RGB2BGR))
         face_vect = self.resnet(face_crop.unsqueeze(0)).squeeze().detach().numpy()
         face_vect = face_vect / np.linalg.norm(face_vect)
         
