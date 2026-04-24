@@ -20,10 +20,15 @@ Use these messages to keep track of who is currently in front of you and to gene
 The description field might be empty, if so, attempt to request the person's name and use it. Do NOT refer to people by their ID.
 If you believe that the appropriate response is staying quiet, leave the response blank.
 The speech recognition system can make mistakes, ask for clarification if the user seems to be saying something odd.
-Do not pot emojis or emoticons in your responses.
+Do not put emojis or emoticons in your responses. Keep the responses short, no longer than two sentences.
 """
 
-SUMMARY_PROMPT = "Your job is to concisely (500 characters max) summarize all important information about Person "
+SUMMARY_PRIMER = """
+Your goal is to create a concise summary (500 characters max) of all important information about a person as requested.
+Be sure to include the person's name if you know it, and any other relevant information that was mentioned during the conversation.
+If the person requested something not to be remembered / stored, do not include that information in the summary.
+"""
+SUMMARY_PROMPT = "Create a summary based on the conversation for Person "
 
 class Converser:
     n_people = 0
@@ -54,12 +59,14 @@ class Converser:
         self.n_people -= 1
         completion = self.client.chat.completions.create(
             model="openai/gpt-oss-120b",
-            messages=[{"role": "system", "content": SUMMARY_PROMPT + str(id)}] + self.state
+            messages=[{"role": "system", "content": SUMMARY_PRIMER}] + self.state + [{"role": "system", "content": SUMMARY_PROMPT + str(id)}]
         )
         self.state.append({"role": "system", "content": f"Person {id} LEFT the frame."})
         if (self.n_people <= 0): # Reset state if conversation over (everybody left)
             self.n_people = 0
+            print("Sent signal to end conversation...")
             self.conversation.join()
+            print("Conversation ended.")
             self.state = []
             self.conversation = None
         return completion.choices[0].message.content
@@ -90,7 +97,7 @@ class Converser:
         )
         self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
         # Speak
-        print(f"ROBOTCONVO> {self.state[-1]['content']}")
+        print(f"ROBOT> {self.state[-1]['content']}")
         self.speak(self.state[-1]['content'])
     
     # Get text and pronounce it with TTS
