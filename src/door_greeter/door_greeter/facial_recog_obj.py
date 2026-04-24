@@ -72,8 +72,9 @@ class FacialRecogObj():
         if face_crop is None:
             return False
         
-        cv2.imshow('mtcnn face', np.array(T.ToPILImage()(face_crop)))
-        if self.yolo.detect_people(cv2.imshow('mtcnn face', np.array(T.ToPILImage()(face_crop)))).shape[0] == 0: 
+        nparray_face = np.array(T.ToPILImage()(face_crop))
+        cv2.imshow('mtcnn face', nparray_face)
+        if self.yolo.detect_people(nparray_face).shape[0] == 0: 
             print("Invalid face detected, discarding.")
             return False
 
