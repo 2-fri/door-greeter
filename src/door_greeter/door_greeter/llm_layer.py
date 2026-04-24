@@ -23,13 +23,11 @@ The speech recognition system can make mistakes, ask for clarification if the us
 Do not pot emojis or emoticons in your responses.
 """
 
-SUMMARY_PROMPT = """
-Please provide a 300 character MAXIMUM summary of all the information that should be remembered about ONLY the person that just left.
-Make sure to include their name if it was mentioned, but omit any particularly sensitive information or information that the user asked not to remember.
-"""
+SUMMARY_PROMPT = "Your job is to concisely (500 characters max) summarize all important information about Person "
 
 class Converser:
     n_people = 0
+    conversation = None
 
     def __init__(self):
         self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -46,21 +44,24 @@ class Converser:
                 messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
             )
             self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
-            print(f"ROBOT> {self.state[-1]['content']}")
+            print(f"ROBOTENTRY> {self.state[-1]['content']}")
             self.speak(self.state[-1]['content'])
-            threading.Thread(target=self.conversation_loop, daemon=False).start()
+            self.conversation = threading.Thread(target=self.conversation_loop, daemon=False)
+            self.conversation.start()
 
 
     def remove_person(self, id : int):
-        self.state.append({"role": "system", "content": f"Person {id} LEFT the frame."})
         self.n_people -= 1
         completion = self.client.chat.completions.create(
             model="openai/gpt-oss-120b",
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state + [{"role": "system", "content": SUMMARY_PROMPT}]
+            messages=[{"role": "system", "content": SUMMARY_PROMPT + str(id)}] + self.state
         )
+        self.state.append({"role": "system", "content": f"Person {id} LEFT the frame."})
         if (self.n_people <= 0): # Reset state if conversation over (everybody left)
             self.n_people = 0
+            self.conversation.join()
             self.state = []
+            self.conversation = None
         return completion.choices[0].message.content
 
     # Listens to user input and returns it as text
@@ -69,13 +70,13 @@ class Converser:
             print("Listening for user response...")
             audio = self.recognizer.listen(source, phrase_time_limit = 10)
         try:
-            user_message = self.recognizer.recognize_sphinx(audio)
+            user_message = self.recognizer.recognize_faster_whisper(audio)
             print("USER> " + user_message)
             return user_message
         except sr.UnknownValueError:
-            print("Sphinx could not understand audio")
+            print("Recognizer could not understand audio")
         except sr.RequestError as e:
-            print("Sphinx error; {0}".format(e))
+            print("Recognizer error; {0}".format(e))
     
 
     # Take input from the user and produce a responce
@@ -89,14 +90,14 @@ class Converser:
         )
         self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
         # Speak
-        print(f"ROBOT> {self.state[-1]['content']}")
-        return self.state[-1]['content']
+        print(f"ROBOTCONVO> {self.state[-1]['content']}")
+        self.speak(self.state[-1]['content'])
     
     # Get text and pronounce it with TTS
     def speak(self, message):
         if (message.strip() == ""):
             return # Empty Message
-        try:
+        try: # Attempt to use the high quality TTS
             voice = self.client.audio.speech.create(
                 model = "canopylabs/orpheus-v1-english",
                 voice = "troy",
@@ -105,11 +106,11 @@ class Converser:
             )
             voice.write_to_file("output.wav")
             os.system("aplay output.wav")
-        except:
+        except: # Free fallback
             self.tts_engine.say(message)
             self.tts_engine.runAndWait()
 
     # Run this in a thread, Keep the conversation going
     def conversation_loop(self):
         while self.n_people > 0:
-            self.speak(self.respond(self.listen()))
+            self.respond(self.listen())

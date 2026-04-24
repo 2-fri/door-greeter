@@ -15,7 +15,7 @@ from door_greeter.llm_layer import Converser
 FACE_MARGIN = 10
 SIMILARITY_THRESHOLD = 1.0
 RECOGNITION_PATIENCE = 50
-FORGETTING_PATIENCE = 10
+FORGETTING_PATIENCE = 50
 
 # Facial Recognition Object
 class FacialRecogObj():

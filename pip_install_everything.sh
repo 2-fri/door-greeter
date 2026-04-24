@@ -4,7 +4,7 @@ pip install sqlite_vec
 pip install groq
 pip install dotenv
 pip install SpeechRecognition[audio]
-pip install SpeechRecognition[pocketsphinx]
+pip install SpeechRecognition[faster-whisper]
 pip install pyttsx3
 
 cd ~/door-greeter

@@ -8,3 +8,4 @@ log/
 .groq_key
 external/
 output.wav
+faces.db
