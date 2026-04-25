@@ -25,7 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'camera_publisher = door_greeter.camera_publisher_node:main',
-            'yolo_node = door_greeter.yolo_node:main',
+            'core = door_greeter.yolo_node:main',
             'debug = door_greeter.output_authenticator:main',
             'check_db = door_greeter.database_checker:check_db',
         ],

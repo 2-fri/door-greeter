@@ -12,7 +12,7 @@ import numpy as np
 from door_greeter.llm_layer import Converser
 
 # Global Settings
-FACE_MARGIN = 30
+FACE_MARGIN = 10
 SIMILARITY_THRESHOLD = 1.0
 RECOGNITION_PATIENCE = 50
 FORGETTING_PATIENCE = 50
@@ -21,6 +21,7 @@ FORGETTING_PATIENCE = 50
 class FacialRecogObj():
     patience = RECOGNITION_PATIENCE
     person_memory = None #[embedding, rowid, forget]
+    counter = 0 # For displaying multiple faces
 
     def __init__(self, yolo):
         # Reference to the yolo node
@@ -42,12 +43,19 @@ class FacialRecogObj():
         print("facial_recog_object Initialized")
     
     def remember_person(self, embedding : np.ndarray, rowid : int, description : str = ""):
+        for entry in self.person_memory:
+            if entry[1] == rowid:
+                entry[0] = embedding
+                entry[2] = FORGETTING_PATIENCE
+                print(f"Person {rowid} RE-ENTERED the frame (embedding updated)")
+                return
         self.person_memory.append([embedding, rowid, FORGETTING_PATIENCE])
         print(f"Person {rowid} ENTERED the frame")
         self.llm_layer.add_person(rowid, description)
 
 
     def advance_forgetting(self):
+        self.counter = 0
         for num, entry in enumerate(self.person_memory[:]):
             entry[2] -= 1
             if entry[2] < 0:
@@ -73,7 +81,8 @@ class FacialRecogObj():
             return False
         
         nparray_face = np.array(T.ToPILImage()(face_crop))
-        cv2.imshow('mtcnn face', nparray_face)
+        cv2.imshow(f'mtcnn face {self.counter}', nparray_face)
+        self.counter += 1
         if self.yolo.detect_people(nparray_face).shape[0] == 0: 
             print("Invalid face detected, discarding.")
             return False
