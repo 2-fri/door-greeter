@@ -24,7 +24,7 @@ class YoloNode(Node):
         super().__init__('yolo_node')
         self.image_sub = self.create_subscription(
             Image,
-            'camera_raw',
+            'rgb/image_raw',
             self.listener_callback,
             1
         )
@@ -48,8 +48,9 @@ class YoloNode(Node):
         return self.model.predict(frame, classes = [0], save = False, verbose = False)[0].boxes
 
     def listener_callback(self, msg):
-        frame = self.bridge.imgmsg_to_cv2(msg)
-
+        received = self.bridge.imgmsg_to_cv2(msg)
+        frame = received[:, :, :3]
+        cv2.imshow('camera', frame)
         # Person Segmentation
         halfway_width = int(frame.shape[1] / 2)
         person_central_x = 0 # [x,y] avg of all people in frame

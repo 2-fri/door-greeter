@@ -25,7 +25,7 @@ export LD_LIBRARY_PATH="$PORTAUDIO_PREFIX/lib:$LD_LIBRARY_PATH"
 export PKG_CONFIG_PATH="$PORTAUDIO_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 
 source /opt/ros/humble/setup.bash
-cd ~/ros2_ws
+cd ~/door-greeter
 
 pip install --no-binary :all: pyaudio
 
