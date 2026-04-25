@@ -20,21 +20,25 @@ VELOCITY_CONSTANT = 1.0
 # YOLO Node
 class YoloNode(Node):
     def __init__(self):
-        # ROS Init
         super().__init__('yolo_node')
+
+
+        # ROS Paremeters
+        self.declare_parameter('movement_output', False)
+        self.declare_parameter('camera_topic', 'rgb/image_raw')
+        self.movement_output = self.get_parameter('movement_output').get_parameter_value().bool_value
+        self.camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
+
+        # ROS Init
         self.image_sub = self.create_subscription(
             Image,
-            'rgb/image_raw',
+            self.camera_topic,
             self.listener_callback,
             1
         )
         self.vel_publisher = self.create_publisher(Twist, '/cmd_vel', 1)
         self.twist = Twist()
         self.bridge = CvBridge()
-
-        # ROS Paremeters
-        self.declare_parameter('movement_output', False)
-        self.movement_output = self.get_parameter('movement_output').get_parameter_value().bool_value
 
         # YOLO Init
         self.model = YOLO(YOLO_MODEL)
@@ -51,6 +55,7 @@ class YoloNode(Node):
         received = self.bridge.imgmsg_to_cv2(msg)
         frame = received[:, :, :3]
         cv2.imshow('camera', frame)
+
         # Person Segmentation
         halfway_width = int(frame.shape[1] / 2)
         person_central_x = 0 # [x,y] avg of all people in frame
@@ -59,7 +64,6 @@ class YoloNode(Node):
 
         for num, box in enumerate(self.detect_people(frame)):
             coords = [int(i) for i in box.xyxy[0].tolist()] # Get bounding box, convert all values to ints
-            # print(coords)
             
             person = frame[coords[1]:coords[3],coords[0]:coords[2]]
 
