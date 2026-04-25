@@ -15,7 +15,7 @@ from door_greeter.facial_recog_obj import FacialRecogObj
 
 # Global Setting
 YOLO_MODEL = "yolo11s.pt"
-VELOCITY_CONSTANT = 1.0
+VELOCITY_CONSTANT = 0.5
 
 # YOLO Node
 class YoloNode(Node):
@@ -67,13 +67,13 @@ class YoloNode(Node):
             
             person = frame[coords[1]:coords[3],coords[0]:coords[2]]
 
-            if self.facial_recog_obj.parse_face(person):
-                person_central_x += box.xywh[0].tolist()[0]
-                person_count += 1
+            # if self.facial_recog_obj.parse_face(person):
+            person_central_x += box.xywh[0].tolist()[0]
+            person_count += 1
         
         if person_count > 0:
             person_central_x = int(person_central_x / person_count)   
-            rotation_vel = ((person_central_x - halfway_width) / halfway_width) * VELOCITY_CONSTANT
+            rotation_vel = ((person_central_x - halfway_width) / halfway_width) * VELOCITY_CONSTANT * -1
             if self.movement_output: # movement_output = True
                 print(person_central_x)
                 print(halfway_width)
