@@ -18,3 +18,12 @@ python output_authenticator.py
 ## ROS Build
 
 To build this package...
+
+To run segway motor:
+ros2 launch segway_rmp_ros2 segway_rmp_ros2.launch.py 
+
+To run azure kinect cam:
+ros2 run azure_kinect_ros2_driver azure_kinect_node
+
+To run lib core:
+ros2 run door_greeter core --ros-args -p movement_output:=True -p camera_topic:=/k4a/rgb/image_raw
