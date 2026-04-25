@@ -25,7 +25,7 @@ class YoloNode(Node):
 
         # ROS Paremeters
         self.declare_parameter('movement_output', False)
-        self.declare_parameter('camera_topic', 'rgb/image_raw')
+        self.declare_parameter('camera_topic', 'k4a/rgb/image_raw')
         self.movement_output = self.get_parameter('movement_output').get_parameter_value().bool_value
         self.camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
 

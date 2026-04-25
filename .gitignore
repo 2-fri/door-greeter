@@ -9,4 +9,4 @@ log/
 external/
 output.wav
 faces.db
-src/Azure_Kinect_ROS_Driver/
+src/Azure_Kinect_ROS2_Driver/
