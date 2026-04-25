@@ -12,7 +12,7 @@ import numpy as np
 from door_greeter.llm_layer import Converser
 
 # Global Settings
-FACE_MARGIN = 10
+FACE_MARGIN = 20
 SIMILARITY_THRESHOLD = 1.0
 RECOGNITION_PATIENCE = 50
 FORGETTING_PATIENCE = 50
