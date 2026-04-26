@@ -14,8 +14,8 @@ from door_greeter.llm_layer import Converser
 # Global Settings
 FACE_MARGIN = 20
 SIMILARITY_THRESHOLD = 1.0
-RECOGNITION_PATIENCE = 50
-FORGETTING_PATIENCE = 20
+RECOGNITION_PATIENCE = 5
+FORGETTING_PATIENCE = 10
 
 # Facial Recognition Object
 class FacialRecogObj():
@@ -65,12 +65,13 @@ class FacialRecogObj():
                 if description:
                     self.faces.execute("UPDATE faces SET value = ? WHERE rowid = ?", (description, entry[1]))
                     self.faces.commit()
+                    print(f"Database ID {entry[1]} updated")
 
     def parse_face(self, person : np.ndarray):
         if person is None or person.ndim == 0:
             print("Null input to parse_face")
             return False
-        cv2.imshow('person', person)
+        cv2.imshow(f"person {self.counter}", person)
         try:
             face_crop = self.mtcnn(PImage.fromarray(person))
         except Exception as e:

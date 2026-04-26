@@ -11,6 +11,8 @@ import speech_recognition as sr
 # Text to Speech
 import pyttsx3
 import os
+import wave
+from time import sleep
 
 SYSTEM_PROMPT = """
 You are a friendly and helpful greeter bot stationed at the entrance of a building. 
@@ -41,12 +43,13 @@ class Converser:
         self.recognizer = sr.Recognizer()
         self.state = []
         self.tts_engine = pyttsx3.init()
+        self.microphone = sr.Microphone()
 
     def add_person(self, id : int, description : str):
         self.state.append({"role": "system", "content": f"Person {id} ENTERED the frame. Person {id} description: {description}"})
         self.n_people += 1
         if (self.n_people == 1): # Start loop if first person enters
-            self.conversation = threading.Thread(target=self.conversation_loop, daemon=False)
+            self.conversation = threading.Thread(target=self.conversation_loop, daemon=True)
             self.conversation.start()
 
 
@@ -66,11 +69,16 @@ class Converser:
             self.conversation = None
         return completion.choices[0].message.content
 
+    def audio_duration(self, audio):
+        with wave.open(audio, 'r') as f:
+            frames = f.getnframes()
+            rate = f.getframerate()
+            return frames / float(rate)
+
     # Listens to user input and returns it as text
     def listen(self):
-        with sr.Microphone() as source:
-            print("Listening for user response...")
-            audio = self.recognizer.listen(source, phrase_time_limit = 5)
+        print("Listening for user response...")
+        audio = self.recognizer.listen(self.microphone, phrase_time_limit = 5)
         try:
             user_message = self.recognizer.recognize_faster_whisper(audio)
             print("USER> " + user_message)
@@ -91,12 +99,12 @@ class Converser:
             messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
         )
         self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
-        # Speak
-        print(f"ROBOT> {self.state[-1]['content']}")
-        self.speak(self.state[-1]['content'])
+        self.speak()
     
     # Get text and pronounce it with TTS
-    def speak(self, message):
+    def speak(self):
+        print(f"ROBOT> {self.state[-1]['content']}")
+        message = self.state[-1]['content']
         if (message.strip() == ""):
             return # Empty Message
         try: # Attempt to use the high quality TTS
@@ -108,6 +116,8 @@ class Converser:
             )
             voice.write_to_file("output.wav")
             os.system("aplay output.wav")
+            threading.Thread(target=os.system, args=("aplay output.wav"), daemon=True).start()
+            sleep(audio_duration("output.wav") - 1)
         except: # Free fallback
             self.tts_engine.say(message)
             self.tts_engine.runAndWait()
@@ -119,7 +129,6 @@ class Converser:
             messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
         )
         self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
-        print(f"ROBOTGREET> {self.state[-1]['content']}")
-        self.speak(self.state[-1]['content'])
+        self.speak()
         while self.n_people > 0:
             self.respond(self.listen())

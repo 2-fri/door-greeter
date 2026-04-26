@@ -15,7 +15,7 @@ from door_greeter.facial_recog_obj import FacialRecogObj
 
 # Global Setting
 YOLO_MODEL = "yolo11s.pt"
-VELOCITY_CONSTANT = 0.5
+VELOCITY_CONSTANT = 0.3
 
 # YOLO Node
 class YoloNode(Node):
@@ -78,7 +78,7 @@ class YoloNode(Node):
                 print(person_central_x)
                 print(halfway_width)
                 print(rotation_vel)
-            if rotation_vel < 0.2 and rotation_vel > -0.2:
+            if rotation_vel < 0.1 and rotation_vel > -0.1:
                 rotation_vel = 0.0
             
             self.twist.angular.z = rotation_vel
