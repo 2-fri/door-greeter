@@ -36,6 +36,7 @@ This summary is meant to be a long-term record that will be reffered to in the f
 """
 SUMMARY_PROMPT = "Create a summary based on the conversation for Person "
 
+LISTEN_LIMIT = 10
 EARLY_LISTEN = 1.6
 TTT_MODEL = "openai/gpt-oss-120b"
 
@@ -94,7 +95,7 @@ class Converser:
     def listen(self):
         with sr.Microphone() as source:
             print("Listening for user response...")
-            audio = self.recognizer.listen(source, phrase_time_limit = 5)
+            audio = self.recognizer.listen(source, phrase_time_limit = LISTEN_LIMIT)
             with open("input.wav", "wb") as f:
                 f.write(audio.get_wav_data())
         try:
