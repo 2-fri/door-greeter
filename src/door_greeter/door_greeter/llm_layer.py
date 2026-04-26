@@ -46,13 +46,6 @@ class Converser:
         self.state.append({"role": "system", "content": f"Person {id} ENTERED the frame. Person {id} description: {description}"})
         self.n_people += 1
         if (self.n_people == 1): # Start loop if first person enters
-            completion = self.client.chat.completions.create(
-                model="openai/gpt-oss-120b",
-                messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
-            )
-            self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
-            print(f"ROBOTENTRY> {self.state[-1]['content']}")
-            self.speak(self.state[-1]['content'])
             self.conversation = threading.Thread(target=self.conversation_loop, daemon=False)
             self.conversation.start()
 
@@ -121,5 +114,12 @@ class Converser:
 
     # Run this in a thread, Keep the conversation going
     def conversation_loop(self):
+        completion = self.client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
+        )
+        self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
+        print(f"ROBOTGREET> {self.state[-1]['content']}")
+        self.speak(self.state[-1]['content'])
         while self.n_people > 0:
             self.respond(self.listen())
