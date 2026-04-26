@@ -8,5 +8,6 @@ log/
 .groq_key
 external/
 output.wav
+input.wav
 faces.db
 src/Azure_Kinect_ROS2_Driver/

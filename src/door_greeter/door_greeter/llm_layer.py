@@ -7,6 +7,7 @@ import threading
 
 # Speech To Text
 import speech_recognition as sr
+from faster_whisper import WhisperModel
 
 # Text to Speech
 import pyttsx3
@@ -20,6 +21,7 @@ Your job is to welcome people as they enter and say goodbye as they leave.
 System messages will be sent to you in the format "Person {id} ENTERED the frame. Person {id} description: {description}" or "Person {id} LEFT the frame."
 Use these messages to keep track of who is currently in front of you and to generate appropriate greetings and goodbyes.
 The description field might be empty, if so, attempt to request the person's name and use it. Do NOT refer to people by their ID.
+If you already know the person's name, don't ask for it.
 If you believe that the appropriate response is staying quiet, leave the response blank.
 The speech recognition system can make mistakes, ask for clarification if the user seems to be saying something odd.
 Do not put emojis or emoticons in your responses. Keep the responses short, no longer than two sentences.
@@ -35,7 +37,7 @@ This summary is meant to be a long-term record that will be reffered to in the f
 SUMMARY_PROMPT = "Create a summary based on the conversation for Person "
 
 EARLY_LISTEN = 1.6
-TTT_MODEL = "openai/gpt-oss-20b"
+TTT_MODEL = "openai/gpt-oss-120b"
 
 class Converser:
     n_people = 0
@@ -46,6 +48,11 @@ class Converser:
         self.recognizer = sr.Recognizer()
         self.state = []
         self.tts_engine = pyttsx3.init()
+        self.stt_model = WhisperModel(
+            "base",
+            compute_type="int8",
+            device="cpu"
+        )
 
     def add_person(self, id : int, description : str):
         self.state.append({"role": "system", "content": f"Person {id} ENTERED the frame. Person {id} description: {description}"})
@@ -88,9 +95,14 @@ class Converser:
         with sr.Microphone() as source:
             print("Listening for user response...")
             audio = self.recognizer.listen(source, phrase_time_limit = 5)
+            with open("input.wav", "wb") as f:
+                f.write(audio.get_wav_data())
         try:
             print("Recognizing user response...")
-            user_message = self.recognizer.recognize_faster_whisper(audio)
+            segments, _ = self.stt_model.transcribe("input.wav")
+            user_message = ""
+            for s in segments:
+                user_message += s.text + " "
             print("USER> " + user_message)
             return user_message
         except sr.UnknownValueError:
