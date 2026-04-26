@@ -25,7 +25,7 @@ class YoloNode(Node):
 
         # ROS Paremeters
         self.declare_parameter('movement_output', False)
-        self.declare_parameter('camera_topic', 'rgb/image_raw')
+        self.declare_parameter('camera_topic', 'k4a/rgb/image_raw')
         self.movement_output = self.get_parameter('movement_output').get_parameter_value().bool_value
         self.camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
 
@@ -46,7 +46,7 @@ class YoloNode(Node):
         # Create Facial Recog Objectect
         self.facial_recog_obj = FacialRecogObj(self)
 
-        print(f"yolo_node Initialized\n\tmovement_output = {self.movement_output}")
+        print(f"yolo_node Initialized\n\tmovement_output = {self.movement_output}\n\tcamera_topic = {self.camera_topic}")
     
     def detect_people(self, frame):
         return self.model.predict(frame, classes = [0], save = False, verbose = False)[0].boxes
@@ -62,12 +62,12 @@ class YoloNode(Node):
         person_count = 0
         rotation_vel = 0 # set to no rotation at first, depending if we see people will change
 
-        for num, box in enumerate(self.detect_people(frame)):
+        for box in self.detect_people(frame):
             coords = [int(i) for i in box.xyxy[0].tolist()] # Get bounding box, convert all values to ints
             
             person = frame[coords[1]:coords[3],coords[0]:coords[2]]
 
-            # if self.facial_recog_obj.parse_face(person):
+            self.facial_recog_obj.parse_face(person)
             person_central_x += box.xywh[0].tolist()[0]
             person_count += 1
         

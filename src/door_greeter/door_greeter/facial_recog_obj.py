@@ -12,10 +12,10 @@ import numpy as np
 from door_greeter.llm_layer import Converser
 
 # Global Settings
-FACE_MARGIN = 10
+FACE_MARGIN = 20
 SIMILARITY_THRESHOLD = 1.0
 RECOGNITION_PATIENCE = 50
-FORGETTING_PATIENCE = 50
+FORGETTING_PATIENCE = 20
 
 # Facial Recognition Object
 class FacialRecogObj():
@@ -81,10 +81,10 @@ class FacialRecogObj():
             return False
         
         nparray_face = np.array(T.ToPILImage()(face_crop))
-        cv2.imshow(f'mtcnn face {self.counter}', nparray_face)
         self.counter += 1
+        cv2.imshow(f'mtcnn face {self.counter}', nparray_face)
         if self.yolo.detect_people(nparray_face).shape[0] == 0: 
-            print("Invalid face detected, discarding.")
+            print(f"Face {self.counter} invalid, discarding.")
             return False
 
         face_vect = self.resnet(face_crop.unsqueeze(0)).squeeze().detach().numpy()

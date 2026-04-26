@@ -25,6 +25,10 @@ export LD_LIBRARY_PATH="$PORTAUDIO_PREFIX/lib:$LD_LIBRARY_PATH"
 export PKG_CONFIG_PATH="$PORTAUDIO_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 
 source /opt/ros/humble/setup.bash
+
+cd ~/door-greeter/src
+git clone https://github.com/ckennedy2050/Azure_Kinect_ROS2_Driver.git
+
 cd ~/door-greeter
 
 pip install --no-binary :all: pyaudio

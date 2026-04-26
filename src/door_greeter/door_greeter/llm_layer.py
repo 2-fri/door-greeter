@@ -70,7 +70,7 @@ class Converser:
     def listen(self):
         with sr.Microphone() as source:
             print("Listening for user response...")
-            audio = self.recognizer.listen(source, phrase_time_limit = 10)
+            audio = self.recognizer.listen(source, phrase_time_limit = 5)
         try:
             user_message = self.recognizer.recognize_faster_whisper(audio)
             print("USER> " + user_message)
