@@ -34,6 +34,9 @@ This summary is meant to be a long-term record that will be reffered to in the f
 """
 SUMMARY_PROMPT = "Create a summary based on the conversation for Person "
 
+EARLY_LISTEN = 1.6
+TTT_MODEL = "openai/gpt-oss-20b"
+
 class Converser:
     n_people = 0
     conversation = None
@@ -43,7 +46,6 @@ class Converser:
         self.recognizer = sr.Recognizer()
         self.state = []
         self.tts_engine = pyttsx3.init()
-        self.microphone = sr.Microphone()
 
     def add_person(self, id : int, description : str):
         self.state.append({"role": "system", "content": f"Person {id} ENTERED the frame. Person {id} description: {description}"})
@@ -56,7 +58,7 @@ class Converser:
     def remove_person(self, id : int):
         self.n_people -= 1
         completion = self.client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model=TTT_MODEL,
             messages=[{"role": "system", "content": SUMMARY_PRIMER}] + self.state + [{"role": "system", "content": SUMMARY_PROMPT + str(id)}]
         )
         self.state.append({"role": "system", "content": f"Person {id} LEFT the frame."})
@@ -71,15 +73,23 @@ class Converser:
 
     def audio_duration(self, audio):
         with wave.open(audio, 'r') as f:
-            frames = f.getnframes()
             rate = f.getframerate()
-            return frames / float(rate)
+            channels = f.getnchannels()
+            sampwidth = f.getsampwidth()
+        data_size = os.path.getsize(audio) - 44
+        frames = data_size // (channels * sampwidth)
+        return frames / float(rate)
+
+    def play_file(self):
+        os.system("aplay output.wav")
 
     # Listens to user input and returns it as text
     def listen(self):
-        print("Listening for user response...")
-        audio = self.recognizer.listen(self.microphone, phrase_time_limit = 5)
+        with sr.Microphone() as source:
+            print("Listening for user response...")
+            audio = self.recognizer.listen(source, phrase_time_limit = 5)
         try:
+            print("Recognizing user response...")
             user_message = self.recognizer.recognize_faster_whisper(audio)
             print("USER> " + user_message)
             return user_message
@@ -95,7 +105,7 @@ class Converser:
             return # Empty Input
         self.state.append({"role": "user", "content": message})
         completion = self.client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model=TTT_MODEL,
             messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
         )
         self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
@@ -115,9 +125,10 @@ class Converser:
                 response_format = "wav"
             )
             voice.write_to_file("output.wav")
-            os.system("aplay output.wav")
-            threading.Thread(target=os.system, args=("aplay output.wav"), daemon=True).start()
-            sleep(audio_duration("output.wav") - 1)
+            threading.Thread(target=self.play_file, daemon=True).start()
+            sleep_dur = self.audio_duration("output.wav") - EARLY_LISTEN
+            if (sleep_dur > 0):
+                sleep(sleep_dur)
         except: # Free fallback
             self.tts_engine.say(message)
             self.tts_engine.runAndWait()
@@ -125,7 +136,7 @@ class Converser:
     # Run this in a thread, Keep the conversation going
     def conversation_loop(self):
         completion = self.client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model=TTT_MODEL,
             messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
         )
         self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
