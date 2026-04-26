@@ -25,6 +25,7 @@ If you already know the person's name, don't ask for it.
 If you believe that the appropriate response is staying quiet, leave the response blank.
 The speech recognition system can make mistakes, ask for clarification if the user seems to be saying something odd.
 Do not put emojis or emoticons in your responses. Keep the responses short, no longer than two sentences.
+If a person entered since your last response, make sure to greet them as you continue the conversation.
 """
 
 SUMMARY_PRIMER = """
@@ -114,9 +115,8 @@ class Converser:
 
     # Take input from the user and produce a responce
     def respond(self, message):
-        if (message.strip() == ""):
-            return # Empty Input
-        self.state.append({"role": "user", "content": message})
+        if (message.strip() != ""):
+            self.state.append({"role": "user", "content": message})
         completion = self.client.chat.completions.create(
             model=TTT_MODEL,
             messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
