@@ -12,7 +12,6 @@ from faster_whisper import WhisperModel
 # Text to Speech
 import pyttsx3
 import os
-import wave
 from time import sleep
 
 SYSTEM_PROMPT = """
@@ -37,9 +36,10 @@ This summary is meant to be a long-term record that will be reffered to in the f
 """
 SUMMARY_PROMPT = "Create a summary based on the conversation for Person "
 
-LISTEN_LIMIT = 10
-EARLY_LISTEN = 1.6
+WAIT_LIMIT = 5      # Time to timeout if no speech heard
+LISTEN_LIMIT = 10   # Max time of user response
 TTT_MODEL = "openai/gpt-oss-120b"
+SAMPLE_RATE = 16000
 
 class Converser:
     n_people = 0
@@ -56,6 +56,8 @@ class Converser:
             compute_type="int8",
             device="cpu"
         )
+        self.mic = sr.Microphone(sample_rate=SAMPLE_RATE)
+        print("llm_layer Initialized")
 
     def add_person(self, id : int, description : str):
         self.state.append({"role": "system", "content": f"Person {id} ENTERED the frame. Person {id} description: {description}"})
@@ -65,14 +67,13 @@ class Converser:
             self.conversation.start()
 
     def remove_person(self, id : int):
-        self.n_people -= 1
         completion = self.client.chat.completions.create(
             model=TTT_MODEL,
             messages=[{"role": "system", "content": SUMMARY_PRIMER}] + self.state + [{"role": "system", "content": SUMMARY_PROMPT + str(id)}]
         )
         self.state.append({"role": "system", "content": f"Person {id} LEFT the frame."})
-        if (self.n_people <= 0): # Reset state if conversation over (everybody left)
-            self.n_people = 0
+        self.n_people -= 1
+        if (self.n_people == 0): # Reset state if conversation over (everybody left)
             print("Sent signal to end conversation...")
             self.conversation.join()
             print("Conversation ended.")
@@ -82,10 +83,10 @@ class Converser:
 
     # Listens to user input and returns it as text
     def listen(self):
-        with sr.Microphone() as source:
+        with self.mic as source:
             self.speech.join() # Wait for TTS to finish before listening
             print("Listening for user response... [1/3]")
-            audio = self.recognizer.listen(source, phrase_time_limit = LISTEN_LIMIT)
+            audio = self.recognizer.listen(source, timeout = WAIT_LIMIT,phrase_time_limit = LISTEN_LIMIT)
             print("Saving user response... [2/3]")
             with open("input.wav", "wb") as f:
                 f.write(audio.get_wav_data())
@@ -104,9 +105,7 @@ class Converser:
     
 
     # Take input from the user and produce a responce
-    def respond(self, message=""):
-        if (message.strip() != ""):
-            self.state.append({"role": "user", "content": message})
+    def respond(self):
         completion = self.client.chat.completions.create(
             model=TTT_MODEL,
             messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
@@ -136,6 +135,10 @@ class Converser:
 
     # Run this in a thread, Keep the conversation going
     def conversation_loop(self):
+        with self.mic as source:
+            print("Calibrating microphone for ambient noise...")
+            self.recognizer.adjust_for_ambient_noise(source, duration=1)
         self.respond() # Initial Greeting
         while self.n_people > 0:
-            self.respond(self.listen())
+            self.state.append({"role": "user", "content": self.listen()})
+            self.respond()

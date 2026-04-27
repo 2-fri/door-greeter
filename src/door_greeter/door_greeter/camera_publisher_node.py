@@ -18,7 +18,7 @@ class CameraPublisher(Node):
         self.publisher = self.create_publisher(Image, 'k4a/rgb/image_raw', 1)
         self.timer = self.create_timer(PUBLISHING_PERIOD, self.callback_func)
 
-        print(f"Camera Publisher Initialized with period {PUBLISHING_PERIOD}s")
+        print(f"camera_publisher_node Initialized\n\tPUBLISHING_PERIOD = {PUBLISHING_PERIOD}")
 
     def callback_func(self):
         success, frame = self.camera.read()
