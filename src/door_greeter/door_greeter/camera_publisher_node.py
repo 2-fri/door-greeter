@@ -15,7 +15,7 @@ class CameraPublisher(Node):
         self.camera = cv2.VideoCapture(self.camDeviceNum)
 
         self.bridge_obj = CvBridge()
-        self.publisher = self.create_publisher(Image, 'camera_raw', 1)
+        self.publisher = self.create_publisher(Image, 'k4a/rgb/image_raw', 1)
         self.timer = self.create_timer(PUBLISHING_PERIOD, self.callback_func)
 
         print(f"Camera Publisher Initialized with period {PUBLISHING_PERIOD}s")

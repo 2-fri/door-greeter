@@ -43,7 +43,8 @@ TTT_MODEL = "openai/gpt-oss-120b"
 
 class Converser:
     n_people = 0
-    conversation = None
+    conversation = None     # Thread for conversation loop
+    speech = None           # Thread for playing TTS audio
 
     def __init__(self):
         self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -63,7 +64,6 @@ class Converser:
             self.conversation = threading.Thread(target=self.conversation_loop, daemon=True)
             self.conversation.start()
 
-
     def remove_person(self, id : int):
         self.n_people -= 1
         completion = self.client.chat.completions.create(
@@ -80,27 +80,17 @@ class Converser:
             self.conversation = None
         return completion.choices[0].message.content
 
-    def audio_duration(self, audio):
-        with wave.open(audio, 'r') as f:
-            rate = f.getframerate()
-            channels = f.getnchannels()
-            sampwidth = f.getsampwidth()
-        data_size = os.path.getsize(audio) - 44
-        frames = data_size // (channels * sampwidth)
-        return frames / float(rate)
-
-    def play_file(self):
-        os.system("aplay output.wav")
-
     # Listens to user input and returns it as text
     def listen(self):
         with sr.Microphone() as source:
-            print("Listening for user response...")
+            self.speech.join() # Wait for TTS to finish before listening
+            print("Listening for user response... [1/3]")
             audio = self.recognizer.listen(source, phrase_time_limit = LISTEN_LIMIT)
+            print("Saving user response... [2/3]")
             with open("input.wav", "wb") as f:
                 f.write(audio.get_wav_data())
         try:
-            print("Recognizing user response...")
+            print("Recognizing user response... [3/3]")
             segments, _ = self.stt_model.transcribe("input.wav")
             user_message = ""
             for s in segments:
@@ -114,7 +104,7 @@ class Converser:
     
 
     # Take input from the user and produce a responce
-    def respond(self, message):
+    def respond(self, message=""):
         if (message.strip() != ""):
             self.state.append({"role": "user", "content": message})
         completion = self.client.chat.completions.create(
@@ -122,14 +112,15 @@ class Converser:
             messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
         )
         self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
-        self.speak()
+        self.speech = threading.Thread(target=self.speak, daemon=True)
+        self.speech.start()
     
     # Get text and pronounce it with TTS
     def speak(self):
-        print(f"ROBOT> {self.state[-1]['content']}")
         message = self.state[-1]['content']
         if (message.strip() == ""):
             return # Empty Message
+        print(f"ROBOT> {message}")
         try: # Attempt to use the high quality TTS
             voice = self.client.audio.speech.create(
                 model = "canopylabs/orpheus-v1-english",
@@ -138,21 +129,13 @@ class Converser:
                 response_format = "wav"
             )
             voice.write_to_file("output.wav")
-            threading.Thread(target=self.play_file, daemon=True).start()
-            sleep_dur = self.audio_duration("output.wav") - EARLY_LISTEN
-            if (sleep_dur > 0):
-                sleep(sleep_dur)
+            os.system("aplay output.wav")
         except: # Free fallback
             self.tts_engine.say(message)
             self.tts_engine.runAndWait()
 
     # Run this in a thread, Keep the conversation going
     def conversation_loop(self):
-        completion = self.client.chat.completions.create(
-            model=TTT_MODEL,
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
-        )
-        self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
-        self.speak()
+        self.respond() # Initial Greeting
         while self.n_people > 0:
             self.respond(self.listen())
