@@ -27,9 +27,9 @@ class YoloNode(Node):
 
         # ROS Paremeters
         self.declare_parameter('movement_output', False)
-        self.declare_parameter('camera_topic', 'rgb/image_raw')
-        self.declare_parameter('depth_topic', 'depth_to_rgb/image_raw')
-        self.declare_parameter('info_topic', 'rgb/camera_info')
+        self.declare_parameter('camera_topic', 'k4a/rgb/image_raw')
+        self.declare_parameter('depth_topic', 'k4a/depth_to_rgb/image_raw')
+        self.declare_parameter('info_topic', 'k4a/rgb/camera_info')
         self.movement_output = self.get_parameter('movement_output').get_parameter_value().bool_value
         self.camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
         self.depth_topic = self.get_parameter('depth_topic').get_parameter_value().string_value
