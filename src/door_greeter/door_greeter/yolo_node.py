@@ -1,7 +1,7 @@
 # ROS Imports
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import Twist
 from cv_bridge import CvBridge
 import cv2
@@ -19,23 +19,26 @@ VELOCITY_CONSTANT = 0.3
 
 # YOLO Node
 class YoloNode(Node):
+    depth_image = None
+    fx = fy = cx = cy = None
+
     def __init__(self):
         super().__init__('yolo_node')
 
-
         # ROS Paremeters
         self.declare_parameter('movement_output', False)
-        self.declare_parameter('camera_topic', 'k4a/rgb/image_raw')
+        self.declare_parameter('camera_topic', 'rgb/image_raw')
+        self.declare_parameter('depth_topic', 'depth_to_rgb/image_raw')
+        self.declare_parameter('info_topic', 'rgb/camera_info')
         self.movement_output = self.get_parameter('movement_output').get_parameter_value().bool_value
         self.camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
+        self.depth_topic = self.get_parameter('depth_topic').get_parameter_value().string_value
+        self.info_topic = self.get_parameter('info_topic').get_parameter_value().string_value
 
         # ROS Init
-        self.image_sub = self.create_subscription(
-            Image,
-            self.camera_topic,
-            self.listener_callback,
-            1
-        )
+        self.image_sub = self.create_subscription(Image, self.camera_topic, self.image_callback, 1)
+        self.depth_sub = self.create_subscription(Image, self.depth_topic, self.depth_callback, 1)
+        self.info_sub = self.create_subscription(CameraInfo, self.info_topic, self.info_callback, 1)
         self.vel_publisher = self.create_publisher(Twist, '/cmd_vel', 1)
         self.twist = Twist()
         self.bridge = CvBridge()
@@ -46,12 +49,33 @@ class YoloNode(Node):
         # Create Facial Recog Objectect
         self.facial_recog_obj = FacialRecogObj(self)
 
-        print(f"yolo_node Initialized\n\tmovement_output = {self.movement_output}\n\tcamera_topic = {self.camera_topic}")
-    
+        print(f"yolo_node Initialized\n\tmovement_output = {self.movement_output}\n\tcamera_topic = {self.camera_topic}\n\tdepth_topic = {self.depth_topic}")
+
     def detect_people(self, frame):
         return self.model.predict(frame, classes = [0], save = False, verbose = False)[0].boxes
 
-    def listener_callback(self, msg):
+    def get_3d_position(self, u : int, v : int):
+        if self.depth_image is None or self.fx is None:
+            self.get_logger().info("Depth information not available yet!")
+            return
+        depth = self.depth_image[v, u]
+        Z = float(depth) / 1000.0
+        if Z == 0:
+            return
+        X = (u - self.cx) * Z / self.fx
+        Y = (v - self.cy) * Z / self.fy
+        return X, Y, Z
+
+    def info_callback(self, msg : CameraInfo):
+        self.fx = msg.k[0]
+        self.fy = msg.k[4]
+        self.cx = msg.k[2]
+        self.cy = msg.k[5]
+
+    def depth_callback(self, msg : Image):
+        self.depth_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+
+    def image_callback(self, msg : Image):
         received = self.bridge.imgmsg_to_cv2(msg)
         frame = received[:, :, :3]
         cv2.imshow('camera', frame)
@@ -68,8 +92,10 @@ class YoloNode(Node):
             person = frame[coords[1]:coords[3],coords[0]:coords[2]]
 
             self.facial_recog_obj.parse_face(person)
-            person_central_x += box.xywh[0].tolist()[0]
+            center = box.xywh[0].tolist()
+            person_central_x += center[0]
             person_count += 1
+            # print(self.get_3d_position(int(center[0]), int(center[1])))
         
         if person_count > 0:
             person_central_x = int(person_central_x / person_count)   

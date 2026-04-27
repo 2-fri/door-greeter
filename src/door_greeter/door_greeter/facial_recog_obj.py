@@ -42,17 +42,20 @@ class FacialRecogObj():
 
         print("facial_recog_object Initialized")
     
+    def average_embeddings(self, em1, em2):
+        avg = (em1 + em2) / 2.0
+        return avg / np.linalg.norm(avg)
+
     def remember_person(self, embedding : np.ndarray, rowid : int, description : str = ""):
         for entry in self.person_memory:
             if entry[1] == rowid:
-                entry[0] = embedding
+                entry[0] = self.average_embeddings(entry[0], embedding)
                 entry[2] = FORGETTING_PATIENCE
                 print(f"Person {rowid} RE-ENTERED the frame (embedding updated)")
                 return
         self.person_memory.append([embedding, rowid, FORGETTING_PATIENCE])
         print(f"Person {rowid} ENTERED the frame")
         self.llm_layer.add_person(rowid, description)
-
 
     def advance_forgetting(self):
         self.counter = 0
@@ -63,7 +66,10 @@ class FacialRecogObj():
                 print(f"Person {entry[1]} LEFT the frame")
                 description = self.llm_layer.remove_person(entry[1])
                 if description:
-                    self.faces.execute("UPDATE faces SET value = ? WHERE rowid = ?", (description, entry[1]))
+                    self.faces.execute(
+                        "UPDATE faces SET embedding = ?, value = ? WHERE rowid = ?", 
+                        (entry[0].tobytes(), description, entry[1])
+                    )
                     self.faces.commit()
                     print(f"Database ID {entry[1]} updated")
 
@@ -100,7 +106,7 @@ class FacialRecogObj():
         embedding = face_vect.tobytes()
         # Face Recognition
         find = self.faces.execute(
-            "SELECT rowid, distance, value FROM faces WHERE embedding MATCH ? AND k = 1",
+            "SELECT rowid, distance, embedding, value FROM faces WHERE embedding MATCH ? AND k = 1",
             (embedding,)
         ).fetchone()
 
@@ -115,10 +121,10 @@ class FacialRecogObj():
                 self.faces.commit()
                 self.remember_person(face_vect, 1)
         else:
-            rowid, distance, description = find
+            rowid, distance, old_embedding, description = find
             if distance <= SIMILARITY_THRESHOLD:    # Match
                 self.patience = RECOGNITION_PATIENCE
-                self.remember_person(face_vect, rowid, description)
+                self.remember_person(self.average_embeddings(np.frombuffer(old_embedding, dtype=np.float32), face_vect), rowid, description)
             elif self.patience:                     # No Match, Waiting
                 self.patience -= 1
             else:                                   # No Match, Adding

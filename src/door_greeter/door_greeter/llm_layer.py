@@ -86,7 +86,11 @@ class Converser:
         with self.mic as source:
             self.speech.join() # Wait for TTS to finish before listening
             print("Listening for user response... [1/3]")
-            audio = self.recognizer.listen(source, timeout = WAIT_LIMIT,phrase_time_limit = LISTEN_LIMIT)
+            try:
+                audio = self.recognizer.listen(source, timeout = WAIT_LIMIT, phrase_time_limit = LISTEN_LIMIT)
+            except sr.WaitTimeoutError:
+                print("Listening timed out.")
+                return ""
             print("Saving user response... [2/3]")
             with open("input.wav", "wb") as f:
                 f.write(audio.get_wav_data())
@@ -110,9 +114,12 @@ class Converser:
             model=TTT_MODEL,
             messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
         )
-        self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
-        self.speech = threading.Thread(target=self.speak, daemon=True)
-        self.speech.start()
+        if completion.choices[0].message.content.strip() != "":
+            self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
+            self.speech = threading.Thread(target=self.speak, daemon=True)
+            self.speech.start()
+        else:
+            print("ROBOT> [Silence]")
     
     # Get text and pronounce it with TTS
     def speak(self):
@@ -137,7 +144,7 @@ class Converser:
     def conversation_loop(self):
         with self.mic as source:
             print("Calibrating microphone for ambient noise...")
-            self.recognizer.adjust_for_ambient_noise(source, duration=1)
+            self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
         self.respond() # Initial Greeting
         while self.n_people > 0:
             self.state.append({"role": "user", "content": self.listen()})
