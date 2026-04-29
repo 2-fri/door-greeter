@@ -42,6 +42,7 @@ class YoloNode(Node):
         self.vel_publisher = self.create_publisher(Twist, '/cmd_vel', 1)
         self.twist = Twist()
         self.bridge = CvBridge()
+        self.rotation_amt = 0.0
 
         # YOLO Init
         self.model = YOLO(YOLO_MODEL)
@@ -108,7 +109,7 @@ class YoloNode(Node):
                 rotation_vel = 0.0
             
             self.twist.angular.z = rotation_vel
-
+            self.rotation_amt += rotation_vel
             if self.movement_output: # movement_output = True
                 if rotation_vel > 0:
                     print("turn right")
@@ -117,10 +118,17 @@ class YoloNode(Node):
                 else:
                     print("stationary")
         else:
-            self.twist.angular.z = 0.0
+            if self.rotation_amt > 0.5:
+                self.twist.angular.z = -0.2
+            elif self.rotation_amt < -0.5:
+                self.twist.angular.z = 0.2
+            else:  
+                self.twist.angular.z = 0.0
         self.facial_recog_obj.advance_forgetting()
         cv2.waitKey(1)
 
+        if abs(self.rotation_amt) > 0.5:
+            self.twist.angular.z = 0.0
         # Turn to Person
         self.vel_publisher.publish(self.twist)        
 
