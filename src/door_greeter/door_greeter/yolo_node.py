@@ -120,15 +120,18 @@ class YoloNode(Node):
         else:
             if self.rotation_amt > 0.5:
                 self.twist.angular.z = -0.2
+                self.rotation_amt += self.twist.angular.z # decrease rotation_amt, 
             elif self.rotation_amt < -0.5:
                 self.twist.angular.z = 0.2
+                self.rotation_amt += self.twist.angular.z # increase rotation_amt,
             else:  
                 self.twist.angular.z = 0.0
         self.facial_recog_obj.advance_forgetting()
         cv2.waitKey(1)
 
-        if abs(self.rotation_amt) > 0.5:
+        if abs(self.rotation_amt) > 0.5: #
             self.twist.angular.z = 0.0
+
         # Turn to Person
         self.vel_publisher.publish(self.twist)        
 
