@@ -136,9 +136,9 @@ class YoloNode(Node):
         # Turn to Person
         self.twist.angular.z = rotation_vel
         self.rotation_amt += rotation_vel
-        print(rotation_vel)
-        print(self.rotation_amt)
-        print("**")
+        # print(rotation_vel)
+        # print(self.rotation_amt)
+        # print("**")
         self.vel_publisher.publish(self.twist)        
 
 def main(args=None):

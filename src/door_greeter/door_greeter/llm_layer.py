@@ -57,7 +57,10 @@ class Converser:
             device="cpu"
         )
         self.mic = sr.Microphone(sample_rate=SAMPLE_RATE)
-        print("llm_layer Initialized")
+        with self.mic as source:
+            print("Calibrating microphone for ambient noise...")
+            self.recognizer.adjust_for_ambient_noise(source, duration=5)
+        print(f"llm_layer Initialized\n\tenergy_threshold = {self.recognizer.energy_threshold}")
 
     def add_person(self, id : int, description : str):
         self.state.append({"role": "system", "content": f"Person {id} ENTERED the frame. Person {id} description: {description}"})
@@ -83,11 +86,10 @@ class Converser:
 
     # Listens to user input and returns it as text
     def listen(self):
-        thresh_save = self.recognizer.energy_threshold
         with self.mic as source:
-            self.recognizer.energy_threshold = 999999
-            self.speech.join() # Wait for TTS to finish before listening
-            self.recognizer.energy_threshold = thresh_save
+            self.speech.join()
+            # Flush own TTS
+            self.recognizer.listen(source, phrase_time_limit=0)
             print("Listening for user response... [1/3]")
             try:
                 audio = self.recognizer.listen(source, timeout = WAIT_LIMIT, phrase_time_limit = LISTEN_LIMIT)
@@ -146,9 +148,6 @@ class Converser:
 
     # Run this in a thread, Keep the conversation going
     def conversation_loop(self):
-        with self.mic as source:
-            print("Calibrating microphone for ambient noise...")
-            self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
         self.respond() # Initial Greeting
         while self.n_people > 0:
             self.state.append({"role": "user", "content": self.listen()})
