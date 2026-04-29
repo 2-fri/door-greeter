@@ -83,8 +83,11 @@ class Converser:
 
     # Listens to user input and returns it as text
     def listen(self):
-        self.speech.join() # Wait for TTS to finish before listening
+        thresh_save = self.recognizer.energy_threshold
         with self.mic as source:
+            self.recognizer.energy_threshold = 999999
+            self.speech.join() # Wait for TTS to finish before listening
+            self.recognizer.energy_threshold = thresh_save
             print("Listening for user response... [1/3]")
             try:
                 audio = self.recognizer.listen(source, timeout = WAIT_LIMIT, phrase_time_limit = LISTEN_LIMIT)
