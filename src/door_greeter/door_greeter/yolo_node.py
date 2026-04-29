@@ -10,6 +10,7 @@ import numpy as np
 
 # Our Imports
 from door_greeter.facial_recog_obj import FacialRecogObj
+from door_greeter.movement_obj import MovementObj
 
 # Global Setting
 YOLO_MODEL = "yolo11s.pt"
@@ -36,13 +37,13 @@ class YoloNode(Node):
         self.image_sub = self.create_subscription(Image, self.camera_topic, self.image_callback, 1)
         self.depth_sub = self.create_subscription(Image, self.depth_topic, self.depth_callback, 1)
         self.info_sub = self.create_subscription(CameraInfo, self.info_topic, self.info_callback, 1)
-        self.vel_publisher = self.create_publisher(Twist, '/cmd_vel', 1)
 
         # YOLO Init
         self.model = YOLO(YOLO_MODEL)
 
-        # Create Facial Recog Objectect
+        # Create Subobjects
         self.facial_recog_obj = FacialRecogObj(self)
+        self.movement_obj = MovementObj()
 
         print(f"yolo_node Initialized\n\tmovement_output = {self.movement_output}\n\tcamera_topic = {self.camera_topic}\n\tdepth_topic = {self.depth_topic}")
 
@@ -80,13 +81,17 @@ class YoloNode(Node):
         person_count = 0
 
         for box in self.detect_people(frame):
-            coords = [int(i) for i in box.xyxy[0].tolist()] # Get bounding box, convert all values to ints
+            coords = [int(i) for i in box.xyxy[0].tolist()]
             person = frame[coords[1]:coords[3],coords[0]:coords[2]]
             self.facial_recog_obj.parse_face(person)
 
             center = [int(i) for i in box.xywh[0].tolist()]
             avg_pos += self.get_3d_position(center[0], center[1])
-        
+            person_count += 1
+
+        if person_count > 0:
+            avg_pos /= person_count
+
         self.facial_recog_obj.advance_forgetting()
         cv2.waitKey(1)     
 
