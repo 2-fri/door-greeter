@@ -142,6 +142,7 @@ class Converser:
         except: # Free fallback
             self.tts_engine.say(message)
             self.tts_engine.runAndWait()
+        print("Finished speech playback.")
 
     # Run this in a thread, Keep the conversation going
     def conversation_loop(self):
