@@ -10,4 +10,7 @@ external/
 output.wav
 input.wav
 faces.db
+serial/
 src/Azure_Kinect_ROS2_Driver/
+src/libsegrayrmp
+src/segray_rmp_ros2

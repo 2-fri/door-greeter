@@ -83,8 +83,8 @@ class Converser:
 
     # Listens to user input and returns it as text
     def listen(self):
+        self.speech.join() # Wait for TTS to finish before listening
         with self.mic as source:
-            self.speech.join() # Wait for TTS to finish before listening
             print("Listening for user response... [1/3]")
             try:
                 audio = self.recognizer.listen(source, timeout = WAIT_LIMIT, phrase_time_limit = LISTEN_LIMIT)
@@ -139,6 +139,7 @@ class Converser:
         except: # Free fallback
             self.tts_engine.say(message)
             self.tts_engine.runAndWait()
+        print("Finished speech playback.")
 
     # Run this in a thread, Keep the conversation going
     def conversation_loop(self):

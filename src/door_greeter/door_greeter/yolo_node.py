@@ -108,8 +108,6 @@ class YoloNode(Node):
             if rotation_vel < 0.1 and rotation_vel > -0.1:
                 rotation_vel = 0.0
             
-            self.twist.angular.z = rotation_vel
-            self.rotation_amt += rotation_vel
             if self.movement_output: # movement_output = True
                 if rotation_vel > 0:
                     print("turn right")
@@ -118,18 +116,29 @@ class YoloNode(Node):
                 else:
                     print("stationary")
         else:
-            if self.rotation_amt > 0.5:
-                self.twist.angular.z = -0.2
-            elif self.rotation_amt < -0.5:
-                self.twist.angular.z = 0.2
+            if self.rotation_amt > 0.05:
+                if self.rotation_amt > 0.1:
+                    rotation_vel = -0.1
+                else:
+                    rotation_vel = -0.01
+            elif self.rotation_amt < -0.05:
+                if self.rotation_amt > -0.1:
+                    rotation_vel = 0.1
+                else:
+                    rotation_vel = 0.01
             else:  
-                self.twist.angular.z = 0.0
+                rotation_vel = 0.0
         self.facial_recog_obj.advance_forgetting()
         cv2.waitKey(1)
 
-        if abs(self.rotation_amt) > 0.5:
-            self.twist.angular.z = 0.0
+        if abs(self.rotation_amt) > 3.0:
+            rotation_vel = 0.0
         # Turn to Person
+        self.twist.angular.z = rotation_vel
+        self.rotation_amt += rotation_vel
+        print(rotation_vel)
+        print(self.rotation_amt)
+        print("**")
         self.vel_publisher.publish(self.twist)        
 
 def main(args=None):
