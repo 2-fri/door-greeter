@@ -2,6 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo
+from cv_bridge import CvBridge
 import cv2
 
 # YOLO Imports
@@ -37,13 +38,14 @@ class YoloNode(Node):
         self.image_sub = self.create_subscription(Image, self.camera_topic, self.image_callback, 1)
         self.depth_sub = self.create_subscription(Image, self.depth_topic, self.depth_callback, 1)
         self.info_sub = self.create_subscription(CameraInfo, self.info_topic, self.info_callback, 1)
+        self.bridge = CvBridge()
 
         # YOLO Init
         self.model = YOLO(YOLO_MODEL)
 
         # Create Subobjects
         self.facial_recog_obj = FacialRecogObj(self)
-        self.movement_obj = MovementObj()
+        self.movement_obj = MovementObj(self)
 
         print(f"yolo_node Initialized\n\tmovement_output = {self.movement_output}\n\tcamera_topic = {self.camera_topic}\n\tdepth_topic = {self.depth_topic}")
 
@@ -86,11 +88,15 @@ class YoloNode(Node):
             self.facial_recog_obj.parse_face(person)
 
             center = [int(i) for i in box.xywh[0].tolist()]
-            avg_pos += self.get_3d_position(center[0], center[1])
-            person_count += 1
+            person_pos = self.get_3d_position(center[0], center[1])
+            if person_pos is not None:
+                avg_pos += person_pos
+                person_count += 1
 
-        if person_count > 0:
-            avg_pos /= person_count
+            if person_count > 0:
+                self.movement_obj.update_with_person_position(avg_pos / person_count)
+            else:
+                self.movement_obj.update_with_empty_frame()
 
         self.facial_recog_obj.advance_forgetting()
         cv2.waitKey(1)     

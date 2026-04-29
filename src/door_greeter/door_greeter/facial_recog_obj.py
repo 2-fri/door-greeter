@@ -90,9 +90,9 @@ class FacialRecogObj():
         nparray_face = np.array(T.ToPILImage()(face_crop))
         self.counter += 1
         cv2.imshow(f'mtcnn face {self.counter}', nparray_face)
-        if self.yolo.detect_people(nparray_face).shape[0] == 0: 
-            print(f"Face {self.counter} invalid, discarding.")
-            return False
+        # if self.yolo.detect_people(nparray_face).shape[0] == 0: 
+        #     print(f"Face {self.counter} invalid, discarding.")
+        #     return False
 
         face_vect = self.resnet(face_crop.unsqueeze(0)).squeeze().detach().numpy()
         face_vect = face_vect / np.linalg.norm(face_vect)

@@ -13,6 +13,7 @@ from faster_whisper import WhisperModel
 import pyttsx3
 import os
 from time import sleep
+import wave
 
 SYSTEM_PROMPT = """
 You are a friendly and helpful greeter bot stationed at the entrance of a building. 
@@ -38,13 +39,26 @@ SUMMARY_PROMPT = "Create a summary based on the conversation for Person "
 
 WAIT_LIMIT = 5      # Time to timeout if no speech heard
 LISTEN_LIMIT = 10   # Max time of user response
+EARLY_LISTEN = 0.7
 TTT_MODEL = "openai/gpt-oss-120b"
 SAMPLE_RATE = 16000
+
+def audio_duration(audio):
+    with wave.open(audio, 'r') as f:
+        rate = f.getframerate()
+        channels = f.getnchannels()
+        sampwidth = f.getsampwidth()
+    data_size = os.path.getsize(audio) - 44
+    frames = data_size // (channels * sampwidth)
+    return frames / float(rate)
+
+def play_file():
+    os.system("aplay output.wav")
+    print("Finished speech playback.")
 
 class Converser:
     n_people = 0
     conversation = None     # Thread for conversation loop
-    speech = None           # Thread for playing TTS audio
 
     def __init__(self):
         self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -58,7 +72,7 @@ class Converser:
         )
         self.mic = sr.Microphone(sample_rate=SAMPLE_RATE)
         with self.mic as source:
-            print("Calibrating microphone for ambient noise...")
+            print("Calibrating microphone for ambient noise... (Quiet Please)")
             self.recognizer.adjust_for_ambient_noise(source, duration=5)
         print(f"llm_layer Initialized\n\tenergy_threshold = {self.recognizer.energy_threshold}")
 
@@ -87,9 +101,6 @@ class Converser:
     # Listens to user input and returns it as text
     def listen(self):
         with self.mic as source:
-            self.speech.join()
-            # Flush own TTS
-            self.recognizer.listen(source, phrase_time_limit=0)
             print("Listening for user response... [1/3]")
             try:
                 audio = self.recognizer.listen(source, timeout = WAIT_LIMIT, phrase_time_limit = LISTEN_LIMIT)
@@ -121,8 +132,7 @@ class Converser:
         )
         if completion.choices[0].message.content.strip() != "":
             self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
-            self.speech = threading.Thread(target=self.speak, daemon=True)
-            self.speech.start()
+            self.speak()
         else:
             print("ROBOT> [Silence]")
     
@@ -140,11 +150,10 @@ class Converser:
                 response_format = "wav"
             )
             voice.write_to_file("output.wav")
-            os.system("aplay output.wav")
         except: # Free fallback
-            self.tts_engine.say(message)
-            self.tts_engine.runAndWait()
-        print("Finished speech playback.")
+            self.tts_engine.save_to_file("output.wav")
+        threading.Thread(target=play_file, daemon=True).start()
+        sleep(audio_duration("output.wav") - EARLY_LISTEN)
 
     # Run this in a thread, Keep the conversation going
     def conversation_loop(self):
