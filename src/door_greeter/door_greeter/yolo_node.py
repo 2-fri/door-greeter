@@ -2,8 +2,6 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import Twist
-from cv_bridge import CvBridge
 import cv2
 
 # YOLO Imports
@@ -15,7 +13,6 @@ from door_greeter.facial_recog_obj import FacialRecogObj
 
 # Global Setting
 YOLO_MODEL = "yolo11s.pt"
-VELOCITY_CONSTANT = 0.3
 
 # YOLO Node
 class YoloNode(Node):
@@ -40,9 +37,6 @@ class YoloNode(Node):
         self.depth_sub = self.create_subscription(Image, self.depth_topic, self.depth_callback, 1)
         self.info_sub = self.create_subscription(CameraInfo, self.info_topic, self.info_callback, 1)
         self.vel_publisher = self.create_publisher(Twist, '/cmd_vel', 1)
-        self.twist = Twist()
-        self.bridge = CvBridge()
-        self.rotation_amt = 0.0
 
         # YOLO Init
         self.model = YOLO(YOLO_MODEL)
@@ -65,7 +59,7 @@ class YoloNode(Node):
             return
         X = (u - self.cx) * Z / self.fx
         Y = (v - self.cy) * Z / self.fy
-        return X, Y, Z
+        return np.array([X, Y, Z])
 
     def info_callback(self, msg : CameraInfo):
         self.fx = msg.k[0]
@@ -82,64 +76,19 @@ class YoloNode(Node):
         cv2.imshow('camera', frame)
 
         # Person Segmentation
-        halfway_width = int(frame.shape[1] / 2)
-        person_central_x = 0 # [x,y] avg of all people in frame
+        avg_pos = np.zeros(3)
         person_count = 0
-        rotation_vel = 0 # set to no rotation at first, depending if we see people will change
 
         for box in self.detect_people(frame):
             coords = [int(i) for i in box.xyxy[0].tolist()] # Get bounding box, convert all values to ints
-            
             person = frame[coords[1]:coords[3],coords[0]:coords[2]]
-
             self.facial_recog_obj.parse_face(person)
-            center = box.xywh[0].tolist()
-            person_central_x += center[0]
-            person_count += 1
-            # print(self.get_3d_position(int(center[0]), int(center[1])))
-        
-        if person_count > 0:
-            person_central_x = int(person_central_x / person_count)   
-            rotation_vel = ((person_central_x - halfway_width) / halfway_width) * VELOCITY_CONSTANT * -1
-            if self.movement_output: # movement_output = True
-                print(person_central_x)
-                print(halfway_width)
-                print(rotation_vel)
-            if rotation_vel < 0.1 and rotation_vel > -0.1:
-                rotation_vel = 0.0
-            
-            if self.movement_output: # movement_output = True
-                if rotation_vel > 0:
-                    print("turn right")
-                elif rotation_vel < 0:
-                    print("turn left")
-                else:
-                    print("stationary")
-        else:
-            if self.rotation_amt > 0.05:
-                if self.rotation_amt > 0.1:
-                    rotation_vel = -0.1
-                else:
-                    rotation_vel = -0.01
-            elif self.rotation_amt < -0.05:
-                if self.rotation_amt > -0.1:
-                    rotation_vel = 0.1
-                else:
-                    rotation_vel = 0.01
-            else:  
-                rotation_vel = 0.0
-        self.facial_recog_obj.advance_forgetting()
-        cv2.waitKey(1)
 
-        if abs(self.rotation_amt) > 3.0:
-            rotation_vel = 0.0
-        # Turn to Person
-        self.twist.angular.z = rotation_vel
-        self.rotation_amt += rotation_vel
-        # print(rotation_vel)
-        # print(self.rotation_amt)
-        # print("**")
-        self.vel_publisher.publish(self.twist)        
+            center = [int(i) for i in box.xywh[0].tolist()]
+            avg_pos += self.get_3d_position(center[0], center[1])
+        
+        self.facial_recog_obj.advance_forgetting()
+        cv2.waitKey(1)     
 
 def main(args=None):
     rclpy.init(args=args)
