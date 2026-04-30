@@ -15,6 +15,7 @@ from door_greeter.movement_obj import MovementObj
 
 # Global Setting
 YOLO_MODEL = "yolo11s.pt"
+MAX_DISTANCE = 5.0
 
 # YOLO Node
 class YoloNode(Node):
@@ -85,18 +86,19 @@ class YoloNode(Node):
         for box in self.detect_people(frame):
             coords = [int(i) for i in box.xyxy[0].tolist()]
             person = frame[coords[1]:coords[3],coords[0]:coords[2]]
-            self.facial_recog_obj.parse_face(person)
-
             center = [int(i) for i in box.xywh[0].tolist()]
             person_pos = self.get_3d_position(center[0], center[1])
-            if person_pos is not None:
-                avg_pos += person_pos
-                person_count += 1
+            if person_pos is not None and person_pos[2] > MAX_DISTANCE:
+                continue
+            if (self.facial_recog_obj.parse_face(person)):
+                if person_pos is not None:
+                    avg_pos += person_pos
+                    person_count += 1
 
-            if person_count > 0:
-                self.movement_obj.update_with_person_position(avg_pos / person_count)
-            else:
-                self.movement_obj.update_with_empty_frame()
+        if person_count > 0:
+            self.movement_obj.update_with_person_position(avg_pos / person_count)
+        else:
+            self.movement_obj.update_with_empty_frame()
 
         self.facial_recog_obj.advance_forgetting()
         cv2.waitKey(1)     

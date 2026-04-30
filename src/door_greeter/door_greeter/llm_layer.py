@@ -34,6 +34,7 @@ If a person entered since your last response, make sure to greet them as you con
 
 INFO_PROMPT = """
 You are currently at the front door of UT Austin's Anna Hiss Gymnasium (refer to it as AHG). It is home to the robotics labs.
+Dr. Hart's lab is focused on human-robot interaction and is down the hall behind the robot on the right.
 """
 
 SUMMARY_PRIMER = """
@@ -49,7 +50,7 @@ WAIT_LIMIT = 5      # Time to timeout if no speech heard
 LISTEN_LIMIT = 10   # Max time of user response
 EARLY_LISTEN = 0.9
 TTT_MODEL = "openai/gpt-oss-120b"
-SAMPLE_RATE = 8000
+SAMPLE_RATE = 16000
 
 def audio_duration(audio):
     with wave.open(audio, 'r') as f:
@@ -78,10 +79,10 @@ class Converser:
             compute_type="int8",
             device="cpu"
         )
-        self.mic = sr.Microphone(sample_rate=SAMPLE_RATE)
+        self.mic = sr.Microphone()
         with self.mic as source:
             print("Calibrating microphone for ambient noise... (Quiet Please)")
-            self.recognizer.adjust_for_ambient_noise(source, duration=5)
+            self.recognizer.adjust_for_ambient_noise(source, duration=1)
         print(f"llm_layer Initialized\n\tenergy_threshold = {self.recognizer.energy_threshold}")
 
     def add_person(self, id : int, description : str):
@@ -92,9 +93,12 @@ class Converser:
             self.conversation.start()
 
     def remove_person(self, id : int):
+        date_and_time = datetime.now().strftime("%Y, Month: %m, Day: %d; %H:%M:%S")
         completion = self.client.chat.completions.create(
             model=TTT_MODEL,
-            messages=[{"role": "system", "content": SUMMARY_PRIMER}] + self.state + [{"role": "system", "content": SUMMARY_PROMPT + str(id)}]
+            messages=[{"role": "system", "content": SUMMARY_PRIMER}] + 
+            [{"role": "system", "content": f"The current date and time is {date_and_time}."}] +
+            self.state + [{"role": "system", "content": SUMMARY_PROMPT + str(id)}]
         )
         self.state.append({"role": "system", "content": f"Person {id} LEFT the frame."})
         self.n_people -= 1
@@ -162,7 +166,11 @@ class Converser:
             )
             voice.write_to_file("output.wav")
         except: # Free fallback
-            self.tts_engine.save_to_file("output.wav")
+            self.tts_engine.save_to_file(
+                text=message,
+                filename="output.wav"
+            )
+            self.tts_engine.runAndWait()
         threading.Thread(target=play_file, daemon=True).start()
         sleep(audio_duration("output.wav") - EARLY_LISTEN)
 

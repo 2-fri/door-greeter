@@ -20,7 +20,7 @@ python output_authenticator.py
 To build this package...
 
 To run segway motor:
-ros2 launch segway_rmp_ros2 segway_rmp_ros2.launch.py 
+ros2 launch bwi_launch segbot_v2.launch.py
 
 To run azure kinect cam:
 ros2 run azure_kinect_ros2_driver azure_kinect_node
