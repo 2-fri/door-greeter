@@ -26,4 +26,4 @@ To run azure kinect cam:
 ros2 run azure_kinect_ros2_driver azure_kinect_node
 
 To run lib core:
-ros2 run door_greeter core --ros-args -p movement_output:=True -p camera_topic:=/k4a/rgb/image_raw
+ros2 run door_greeter core

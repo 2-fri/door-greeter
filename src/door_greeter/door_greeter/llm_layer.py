@@ -13,19 +13,27 @@ from faster_whisper import WhisperModel
 import pyttsx3
 import os
 from time import sleep
+from datetime import datetime
 import wave
 
 SYSTEM_PROMPT = """
 You are a friendly and helpful greeter bot stationed at the entrance of a building. 
-Your job is to welcome people as they enter and say goodbye as they leave. 
+Your job is to welcome people as they enter and say goodbye as they leave.
+After the initial greeting, attempt to make small talk and ask why they're here, etc.
+The system message immediately after this describes the location you are at and the one after that gives you the current date and time.
 System messages will be sent to you in the format "Person {id} ENTERED the frame. Person {id} description: {description}" or "Person {id} LEFT the frame."
 Use these messages to keep track of who is currently in front of you and to generate appropriate greetings and goodbyes.
+If you have any information already stored about the user (e.g. where they were the last time they visit), feel free to ask them about it. 
 The description field might be empty, if so, attempt to request the person's name and use it. Do NOT refer to people by their ID.
 If you already know the person's name, don't ask for it.
 If you believe that the appropriate response is staying quiet, leave the response blank.
 The speech recognition system can make mistakes, ask for clarification if the user seems to be saying something odd.
 Do not put emojis or emoticons in your responses. Keep the responses short, no longer than two sentences.
 If a person entered since your last response, make sure to greet them as you continue the conversation.
+"""
+
+INFO_PROMPT = """
+You are currently at the front door of UT Austin's Anna Hiss Gymnasium (refer to it as AHG). It is home to the robotics labs.
 """
 
 SUMMARY_PRIMER = """
@@ -39,9 +47,9 @@ SUMMARY_PROMPT = "Create a summary based on the conversation for Person "
 
 WAIT_LIMIT = 5      # Time to timeout if no speech heard
 LISTEN_LIMIT = 10   # Max time of user response
-EARLY_LISTEN = 0.7
+EARLY_LISTEN = 0.9
 TTT_MODEL = "openai/gpt-oss-120b"
-SAMPLE_RATE = 16000
+SAMPLE_RATE = 8000
 
 def audio_duration(audio):
     with wave.open(audio, 'r') as f:
@@ -126,9 +134,12 @@ class Converser:
 
     # Take input from the user and produce a responce
     def respond(self):
+        date_and_time = datetime.now().strftime("%Y, Month: %m, Day: %d; %H:%M:%S")
         completion = self.client.chat.completions.create(
             model=TTT_MODEL,
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.state
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + 
+            [{"role": "system", "content": INFO_PROMPT}] +
+            [{"role": "system", "content": f"The current date and time is {date_and_time}."}] + self.state
         )
         if completion.choices[0].message.content.strip() != "":
             self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
