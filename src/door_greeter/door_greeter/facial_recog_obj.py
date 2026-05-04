@@ -17,6 +17,11 @@ SIMILARITY_THRESHOLD = 1.0
 RECOGNITION_PATIENCE = 5
 FORGETTING_PATIENCE = 10
 
+
+def average_embeddings(em1, em2):
+    avg = (em1 + em2) / 2.0
+    return avg / np.linalg.norm(avg)
+
 # Facial Recognition Object
 class FacialRecogObj():
     patience = RECOGNITION_PATIENCE
@@ -41,15 +46,11 @@ class FacialRecogObj():
         self.llm_layer = Converser()
 
         print("facial_recog_object Initialized")
-    
-    def average_embeddings(self, em1, em2):
-        avg = (em1 + em2) / 2.0
-        return avg / np.linalg.norm(avg)
 
     def remember_person(self, embedding : np.ndarray, rowid : int, description : str = ""):
         for entry in self.person_memory:
             if entry[1] == rowid:
-                entry[0] = self.average_embeddings(entry[0], embedding)
+                entry[0] = average_embeddings(entry[0], embedding)
                 entry[2] = FORGETTING_PATIENCE
                 print(f"Person {rowid} RE-ENTERED the frame (embedding updated)")
                 return
@@ -124,7 +125,7 @@ class FacialRecogObj():
             rowid, distance, old_embedding, description = find
             if distance <= SIMILARITY_THRESHOLD:    # Match
                 self.patience = RECOGNITION_PATIENCE
-                self.remember_person(self.average_embeddings(np.frombuffer(old_embedding, dtype=np.float32), face_vect), rowid, description)
+                self.remember_person(average_embeddings(np.frombuffer(old_embedding, dtype=np.float32), face_vect), rowid, description)
             elif self.patience:                     # No Match, Waiting
                 self.patience -= 1
             else:                                   # No Match, Adding

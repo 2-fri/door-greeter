@@ -67,7 +67,7 @@ def play_file():
 
 class Converser:
     n_people = 0
-    conversation = None     # Thread for conversation loop
+    conversation = None     # Conversation loop stop event
 
     def __init__(self):
         self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -89,8 +89,8 @@ class Converser:
         self.state.append({"role": "system", "content": f"Person {id} ENTERED the frame. Person {id} description: {description}"})
         self.n_people += 1
         if (self.n_people == 1): # Start loop if first person enters
-            self.conversation = threading.Thread(target=self.conversation_loop, daemon=True)
-            self.conversation.start()
+            self.conversation = threading.Event()
+            threading.Thread(target=self.conversation_loop, args=(self.conversation,), daemon=True).start()
 
     def remove_person(self, id : int):
         date_and_time = datetime.now().strftime("%Y, Month: %m, Day: %d; %H:%M:%S")
@@ -104,8 +104,7 @@ class Converser:
         self.n_people -= 1
         if (self.n_people == 0): # Reset state if conversation over (everybody left)
             print("Sent signal to end conversation...")
-            self.conversation.join()
-            print("Conversation ended.")
+            self.conversation.set()
             self.state = []
             self.conversation = None
         return completion.choices[0].message.content
@@ -175,8 +174,11 @@ class Converser:
         sleep(audio_duration("output.wav") - EARLY_LISTEN)
 
     # Run this in a thread, Keep the conversation going
-    def conversation_loop(self):
+    def conversation_loop(self, stop_event):
         self.respond() # Initial Greeting
-        while self.n_people > 0:
-            self.state.append({"role": "user", "content": self.listen()})
+        while not stop_event.is_set():
+            user_input = self.listen()
+            if stop_event.is_set():
+                break
+            self.state.append({"role": "user", "content": user_input})
             self.respond()
