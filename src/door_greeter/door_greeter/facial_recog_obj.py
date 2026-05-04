@@ -9,7 +9,7 @@ import sqlite3, sqlite_vec
 import numpy as np
 
 # Our Imports
-from door_greeter.llm_layer import Converser
+from door_greeter.llm_layer import LLM_LAYER
 
 # Global Settings
 FACE_MARGIN = 20
@@ -43,7 +43,7 @@ class FacialRecogObj():
 
         # Internal Init
         self.person_memory = []
-        self.llm_layer = Converser()
+        self.llm_layer = LLM_LAYER()
 
         print("facial_recog_object Initialized")
 

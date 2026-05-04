@@ -1,5 +1,4 @@
-import sqlite3
-import sqlite_vec
+import sqlite3, sqlite_vec
 
 def check_db():
     db = sqlite3.connect("faces.db")

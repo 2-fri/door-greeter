@@ -73,9 +73,9 @@ def audio_duration(audio):
 
 def play_file():
     os.system("aplay output.wav")
-    print("Finished speech playback.")
+    print("Finished audio playback.")
 
-class Converser:
+class LLM_LAYER():
     n_people = 0
     conversation = None     # Conversation loop stop event
 
@@ -88,16 +88,16 @@ class Converser:
             print("Calibrating microphone for ambient noise... (Quiet Please)")
             self.recognizer.adjust_for_ambient_noise(source, duration=1)
 
-        self.state = []
-        self.info = []
-        self.people = []
+        self.state = []     # The conversation
+        self.info = []      # Descriptions of participants
+        self.people = set() # Set of people currently in the frame
 
         print(f"llm_layer Initialized\n\tenergy_threshold = {self.recognizer.energy_threshold}")
 
     def add_person(self, id : int, description : str):
         self.state.append({"role": "system", "content": f"Person {id} ENTERED the frame."})
         if id not in self.people:
-            self.people.append(id)
+            self.people.add(id)
             self.info.append({"role": "system", "content": f"Person {id} description: {description}"})
         self.n_people += 1
         if (self.n_people == 1): # Start loop if first person enters
@@ -118,7 +118,6 @@ class Converser:
         if (self.n_people == 0): # Reset state if conversation over (everybody left)
             print("Conversation ended.")
             self.conversation.set()
-            self.conversation = None
             self.state.clear()
             self.info.clear()
             self.people.clear()
