@@ -1,5 +1,4 @@
 from groq import Groq
-from dotenv import load_dotenv
 import os
 
 # Threading
@@ -7,7 +6,6 @@ import threading
 
 # Speech To Text
 import speech_recognition as sr
-from faster_whisper import WhisperModel
 
 # Text to Speech
 import pyttsx3
@@ -49,8 +47,11 @@ SUMMARY_PROMPT = "Create a summary based on the conversation for Person "
 WAIT_LIMIT = 5      # Time to timeout if no speech heard
 LISTEN_LIMIT = 10   # Max time of user response
 EARLY_LISTEN = 0.9
-TTT_MODEL = "openai/gpt-oss-120b"
 SAMPLE_RATE = 16000
+
+STT_MODEL = "whisper-large-v3-turbo"
+TTT_MODEL = "openai/gpt-oss-120b"
+TTS_MODEL = "canopylabs/orpheus-v1-english"
 
 def audio_duration(audio):
     with wave.open(audio, 'r') as f:
@@ -74,11 +75,6 @@ class Converser:
         self.recognizer = sr.Recognizer()
         self.state = []
         self.tts_engine = pyttsx3.init()
-        self.stt_model = WhisperModel(
-            "base",
-            compute_type="int8",
-            device="cpu"
-        )
         self.mic = sr.Microphone()
         with self.mic as source:
             print("Calibrating microphone for ambient noise... (Quiet Please)")
@@ -123,12 +119,13 @@ class Converser:
                 f.write(audio.get_wav_data())
         try:
             print("Recognizing user response... [3/3]")
-            segments, _ = self.stt_model.transcribe("input.wav")
-            user_message = ""
-            for s in segments:
-                user_message += s.text + " "
-            print("USER> " + user_message)
-            return user_message
+            with open("input.wav", "rb") as file:
+                transcription = self.client.audio.transcriptions.create(
+                    file=("input.wav", file.read()),
+                    model=STT_MODEL
+                )
+            print("USER> " + transcription.text)
+            return transcription.text
         except sr.UnknownValueError:
             print("Recognizer could not understand audio")
         except sr.RequestError as e:
@@ -158,7 +155,7 @@ class Converser:
         print(f"ROBOT> {message}")
         try: # Attempt to use the high quality TTS
             voice = self.client.audio.speech.create(
-                model = "canopylabs/orpheus-v1-english",
+                model = TTS_MODEL,
                 voice = "troy",
                 input = message,
                 response_format = "wav"
