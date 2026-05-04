@@ -14,12 +14,13 @@ from time import sleep
 from datetime import datetime
 import wave
 
-SYSTEM_PROMPT = """
+SYSTEM_PRIMER = """
 You are a friendly and helpful greeter bot stationed at the entrance of a building. 
 Your job is to welcome people as they enter and say goodbye as they leave.
 After the initial greeting, attempt to make small talk and ask why they're here, etc.
 The system message immediately after this describes the location you are at and the one after that gives you the current date and time.
-System messages will be sent to you in the format "Person {id} ENTERED the frame. Person {id} description: {description}" or "Person {id} LEFT the frame."
+After that, there will be some amount of system messages giving information about people that participated or are participating in the current conversation, in the format "Person {id} description: {description}."
+System messages regarding who is in the frame will be sent to you in the format "Person {id} ENTERED the frame." or "Person {id} LEFT the frame."
 Use these messages to keep track of who is currently in front of you and to generate appropriate greetings and goodbyes.
 If you have any information already stored about the user (e.g. where they were the last time they visit), feel free to ask them about it. 
 The description field might be empty, if so, attempt to request the person's name and use it. Do NOT refer to people by their ID.
@@ -30,7 +31,7 @@ Do not put emojis or emoticons in your responses. Keep the responses short, no l
 If a person entered since your last response, make sure to greet them as you continue the conversation.
 """
 
-INFO_PROMPT = """
+INFO_PRIMER = """
 You are currently at the front door of UT Austin's Anna Hiss Gymnasium (refer to it as AHG). It is home to the robotics labs.
 Dr. Hart's lab is focused on human-robot interaction and is down the hall behind the robot on the right.
 """
@@ -40,9 +41,17 @@ Your goal is to create a concise summary (500 characters max) of all important i
 Be sure to include the person's name if you know it, and any other relevant information that was mentioned during the conversation.
 Also include the information already provided in the previously stored description.
 If the person requested something not to be remembered / stored, do not include that information in the summary.
-This summary is meant to be a long-term record that will be reffered to in the future.
+This summary is meant to be a long-term record that will be reffered to in the future. Use plaintext only.
+Try not to include information that is only relevant in the current context (e.g. "Person seemed to be in a hurry today") unless you think it is important to remember for the future.
+The system message immediately after this will give you information about you and where you are, try not to include that in the summary unless you think it is important for the future.
 """
-SUMMARY_PROMPT = "Create a summary based on the conversation for Person "
+
+SUMMARY_PROMPT = """
+Create a summary based on the conversation for Person {}.
+Format it as follows:
+Name: [name if known, otherwise "Unknown"]
+Description: [any other relevant information about the person that you think is important to remember]
+"""
 
 WAIT_LIMIT = 5      # Time to timeout if no speech heard
 LISTEN_LIMIT = 10   # Max time of user response
@@ -73,36 +82,46 @@ class Converser:
     def __init__(self):
         self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
         self.recognizer = sr.Recognizer()
-        self.state = []
         self.tts_engine = pyttsx3.init()
         self.mic = sr.Microphone()
         with self.mic as source:
             print("Calibrating microphone for ambient noise... (Quiet Please)")
             self.recognizer.adjust_for_ambient_noise(source, duration=1)
+
+        self.state = []
+        self.info = []
+        self.people = []
+
         print(f"llm_layer Initialized\n\tenergy_threshold = {self.recognizer.energy_threshold}")
 
     def add_person(self, id : int, description : str):
-        self.state.append({"role": "system", "content": f"Person {id} ENTERED the frame. Person {id} description: {description}"})
+        self.state.append({"role": "system", "content": f"Person {id} ENTERED the frame."})
+        if id not in self.people:
+            self.people.append(id)
+            self.info.append({"role": "system", "content": f"Person {id} description: {description}"})
         self.n_people += 1
         if (self.n_people == 1): # Start loop if first person enters
             self.conversation = threading.Event()
             threading.Thread(target=self.conversation_loop, args=(self.conversation,), daemon=True).start()
 
     def remove_person(self, id : int):
-        date_and_time = datetime.now().strftime("%Y, Month: %m, Day: %d; %H:%M:%S")
         completion = self.client.chat.completions.create(
             model=TTT_MODEL,
-            messages=[{"role": "system", "content": SUMMARY_PRIMER}] + 
-            [{"role": "system", "content": f"The current date and time is {date_and_time}."}] +
-            self.state + [{"role": "system", "content": SUMMARY_PROMPT + str(id)}]
+            messages=[
+                {"role": "system", "content": SUMMARY_PRIMER},
+                {"role": "system", "content": INFO_PRIMER},
+                {"role": "system", "content": datetime.now().strftime("Current Date and Time. Year: %Y, Month: %m, Day: %d; %H:%M:%S")},
+            ] + self.info + self.state + [{"role": "system", "content": SUMMARY_PROMPT.format(id)}]
         )
         self.state.append({"role": "system", "content": f"Person {id} LEFT the frame."})
         self.n_people -= 1
         if (self.n_people == 0): # Reset state if conversation over (everybody left)
-            print("Sent signal to end conversation...")
+            print("Conversation ended.")
             self.conversation.set()
-            self.state = []
             self.conversation = None
+            self.state.clear()
+            self.info.clear()
+            self.people.clear()
         return completion.choices[0].message.content
 
     # Listens to user input and returns it as text
@@ -134,12 +153,13 @@ class Converser:
 
     # Take input from the user and produce a responce
     def respond(self):
-        date_and_time = datetime.now().strftime("%Y, Month: %m, Day: %d; %H:%M:%S")
         completion = self.client.chat.completions.create(
             model=TTT_MODEL,
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + 
-            [{"role": "system", "content": INFO_PROMPT}] +
-            [{"role": "system", "content": f"The current date and time is {date_and_time}."}] + self.state
+            messages=[
+                {"role": "system", "content": SYSTEM_PRIMER},
+                {"role": "system", "content": INFO_PRIMER},
+                {"role": "system", "content": datetime.now().strftime("Current Date and Time. Year: %Y, Month: %m, Day: %d; %H:%M:%S")},
+            ] + self.info + self.state
         )
         if completion.choices[0].message.content.strip() != "":
             self.state.append({"role": "assistant", "content": completion.choices[0].message.content})
